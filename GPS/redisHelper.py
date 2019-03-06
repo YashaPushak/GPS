@@ -317,7 +317,16 @@ def initializeBracket(gpsID,p,pts,ptns,alg,R):
 def updateBracket(gpsID,p,pts,ptns,alg,R):
     #Author: YP
     #Last updated: 2019-03-06
-    #Updated to conform to the new argument format. This should actually never be run with categorical parameters anyways, but it's still good to conform. 
+    #Updated to conform to the new argument format.
+    #Note that this function essentially performs two tasks:
+    #One, it re-assigns the key-value mappings between pts and ptns
+    #When the brackets for numerical parameters are udpated. 
+    #Two,  it updates the information about the other parameter
+    #incumbents stored in alg. 
+    #This means there is no harm in allowing it to run for 
+    #categorical parameters (since the key-value mappings never
+    #change), other than wasting time. It can therefore still be
+    #used to update the parameter incumbnets stored in alg. 
 
    
     with R.pipeline() as pipe:
@@ -338,9 +347,9 @@ def updateBracket(gpsID,p,pts,ptns,alg,R):
                 initializeBracket(gpsID,p,pts,ptns,alg,pipe)
 
                 #Now the tricky part: updating the run information to match the new bracket points.
-                for i in range(0,4):
+                for i in range(0,len(ptns)):
                     oldPTN = ''
-                    for oldI in range(0,4):
+                    for oldI in range(0,len(ptns)):
                         if(pts[i] == oldPts[oldI]):
                             oldPTN = ptns[oldI]
                             break

@@ -204,16 +204,17 @@ def calNumRunsEqvs(p,runs,pbest,prange,decayRate):
     return sum(decayRate**np.array(changes))
 
 
-def updateIncumbent(p,a,b,c,d,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,logger):
+def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,logger):
     #Author: YP
     #Created: 2018-05-03
-    #Last updated: 2018-09-21
+    #Last updated: 2019-03-06
+    #Conforms to cat format.
     logger.debug("Updating the Incumbent")
 
 
     f = {}
     numRunsEqvs = {}
-    for ptn in ['a','b','c','d']:
+    for ptn in ptns:
         f[ptn] = calPerf(p,runs[ptn],pbest,prange,decayRate)
         numRunsEqvs[ptn] = calNumRunsEqvs(p,runs[ptn],pbest,prange,decayRate)
 
@@ -235,15 +236,11 @@ def updateIncumbent(p,a,b,c,d,runs,pbest,prevIncInsts,prange,decayRate,alpha,min
         if(loopCount >= loopLimit):
             logger.debug("INFINITE LOOP in updateIncumbent?")
         #Update the best-known value
-        if(order[i] == 'a'):
-            inc = a
-        elif(order[i] == 'b'):
-            inc = b
-        elif(order[i] == 'c'):
-            inc = c
-        else:
-            inc = d
-           
+        for j in range(0,len(ptns)):
+            if(order[i] == ptns[j]):
+                inc = pts[j]
+                break
+          
         #Make sure that the new incumbent has been run on a superset of the
         #instances on which the previous incumbent was run. and that at least
         #minInstances run equivalents have been performed.
@@ -276,7 +273,7 @@ def updateIncumbent(p,a,b,c,d,runs,pbest,prevIncInsts,prange,decayRate,alpha,min
             #run on at least minInstances instances.
             logger.debug(str(comp))
             logger.debug("We only let a candidate proceed to the next round if it has been run on at least " + str(minInstances) + " equivalent instances.")
-            candidates = ['a','b','c','d']
+            candidates = ptns
             candsRnd1 = []
             for cand in candidates:
                 if(numRunsEqvs[cand] >= minInstances):
@@ -441,32 +438,37 @@ def getParamString(params):
 
 
 
-def permTestSep(parameter,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger):
+def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger):
     #Author: YP
     #Created: 2018-04-11
     #Last updated: 2018-05-03
+    #Conforms to the cat format. 
     #Defines the relative ordering between the points by assessing
     #statistical significance with a permutation test.
 
 
     #Get the performance estimate for each point
     f = {}
-    for pt in ['a','b','c','d']:
-        f[pt] = calPerf(parameter,runs[pt],pbest,prange,decayRate)
+    for ptn in ptns:
+        f[ptn] = calPerf(parameter,runs[ptn],pbest,prange,decayRate)
 
 
-    ptn = ['a','b','c','d']
     eliminated = []
-    for j in range(0,4):
-        if(not neverCapped(runs,ptn[j],cutoff)):
+    for j in range(0,len(ptns)):
+        if(not neverCapped(runs,ptns[j],cutoff)):
             #This value has exceeded the bound multiplier times the incumbent's performance. So we are not going to perform permutation tests for it, instead we will assume it, and any others like it, are all equally larger than all other points.
-            eliminated.append(ptn[j])
+            eliminated.append(ptns[j])
 
     #comp will accept tuples and return -1,0, or 1, depending on whether or not the tuples contain values that are separable by
     #the permutation test. The syntax is chosen such that "comp[(p0,p1)] <operator> 0" translates naturally to  "p0 <operator> p1"
     comp = {}
 
-    for p in [('a','b'),('a','c'),('a','d'),('b','c'),('b','d'),('c','d'),('a','a'),('b','b'),('c','c'),('d','d')]:
+    perms = []
+    for i in range(0,len(ptns)):
+        for j in range(i,len(ptns)):
+            perms.append((ptns[i],ptns[j]))
+
+    for p in perms:
         if(f[p[0]] < f[p[1]]):
             low = 0
             hi = 1
@@ -495,7 +497,6 @@ def permTestSep(parameter,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,
             #everything is equal to itself
             comp[(p[0],p[1])] = 0
         else:
-
             #Get the instance-seed pairs for which at least one of each point has ?a completed run.
             #We will use the union for the test.
             #insts = runs[p[low]].keys()
@@ -515,7 +516,7 @@ def permTestSep(parameter,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,
                         Changes[ptl].append(calChanges(parameter,pbestOld,pbest,prange))
                     else:
                         Times[ptl].append(-1)
-                        Changes[ptl].append(float('inf')) #An infinite number of changes will cause the value to go to zero for any non-zero decay rate.
+                        Changes[ptl].append(float('inf')) #An infinite number of changes will cause the value to go to zero for any decay rate less than 1.
 
             #Perform the permutation test
             if(permutationTest(Times[low],Times[hi],Changes[low],Changes[hi],alpha,1000,decayRate,minInstances,logger)):

@@ -210,7 +210,7 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
     incumbentTrace = []
 
     #Stores the information about the runs collected during this iteration
-    runs = newParamDict(params,newRuns())
+    runs = newParamDict(params,newRuns(['a','b','c','d'))
     #Modify the structure for categorical parameters
     for p in params:
         if(paramType[p] == 'categorical'):
@@ -258,7 +258,7 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
             redisHelper.initializeBracket(gpsID,p,[a[p],b[p],c[p],d[p]],['a','b','c','d'],alg[p],R)
             redisHelper.saveIncumbent(gpsID,p,p0[p],0,cutoff*10,R)
         else:
-            redisHelper.initializeCat(gpsID,p,prange[p],prange[p],alg[p],R)
+            redisHelper.initializeBracket(gpsID,p,prange[p],prange[p],alg[p],R)
             redisHelper.saveIncumbent(gpsID,p,p0[p],0,cutoff*10,R)
     
         #Perform a small number of initial runs so that we don't immediately make decisions that over-fit to random noise.
@@ -272,12 +272,9 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
                 instSet[p].append((insts[j],random.randrange(100000000, 999999999)))
                 #instSet[p].append((insts[j],100001 + j))
 
-
-    #TODO: This may need to be updated again once you have settled on a format for
-    #how categorical parameters work in redisHelper.py.
     #TODO: Figure out how to handle child parameters who search space do not 
     #contain the default configuration at all.  
-    success = runDefault(params,p0,instSet,alg,gpsID,R,logger)
+    success = runDefault(params,p0,prange,paramType,instSet,alg,gpsID,R,logger)
 
     if(not success):
         #Signal the slaves to stop working.
@@ -290,28 +287,18 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
     prevIncInsts = newParamDict(params,[(insts[0],firstSeed)])
 
     for p in params:
-        if(paramType[p] in ['integer','real']):
-            runs[p] = redisHelper.getRuns(gpsID,p,R)
+        pts,ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
+          
+        runs[p] = redisHelper.getRuns(gpsID,p,ptns,R)
 
-            #Initially we won't have enough data to make any decisions.
-            op = 'Keep'
-            direction = ''
-            weakness = ['a','b','c','d']
-            comp = {}
-            for pt1 in ['a','b','c','d']:
-                for pt2 in ['a','b','c','d']:
-                    comp[(pt1,pt2)] = 0
+        #Initially we won't have enough data to make any decisions.
+        weakness = []
+        comp = {}
+        for pt1 in ptns:
+            for pt2 in ptns:
+                comp[(pt1,pt2)] = 0
 
-            queueRuns(runs[p],[a[p],b[p],c[p],d[p]],instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p] == 'integer',minInstances,budget,comp,op,direction,weakness,instIncr,gpsID,R,logger) 
-       else:
-            runs[p] = redisHelper.getCatRuns(gpsID,p,R)
-
-            #Initially we won't have enough data to make any decisions
-            eliminated = {}
-            for val in prange[p]:
-                eliminated[val] = False
-
-            queueCatRuns(runs[p],prange[p],instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p],minInstances,budget,eliminated,instIncr,gpsID,R,logger)
+        queueRuns(runs[p],pts,ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p] == 'integer',minInstances,budget,comp,weakness,instIncr,gpsID,R,logger) 
 
         #budget['totalRuns'] += runCount
         #budget['totalCPUTime'] += cpuTime
@@ -319,19 +306,19 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
         si[p] += minInstances
         i[p] %= len(insts)
  
-    #TODO: Continue from here...
-
     #Collect the results of the runs that we can
     for p in params:
-        runs[p] = redisHelper.getRuns(gpsID,p,R)
+        pts,ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
+
+        runs[p] = redisHelper.getRuns(gpsID,p,ptns,R)
 
         #Get the performance estimate for each point
         f = {} 
-        for pt in runs[p].keys():
-            f[pt] = calPerf(p,runs[p][pt],pbest,prange,decayRate)
+        for ptn in ptns:
+            f[pt] = calPerf(p,runs[p][ptn],pbest,prange,decayRate)
 
         #Update the incumbent
-        pbest[p], inc[p], pbestNumRuns[p], pbestTime[p], prevIncInsts[p] = updateIncumbent(p,a[p],b[p],c[p],d[p],runs[p],pbest,prevIncInsts[p],prange,decayRate,alpha,minInstances,cutoff,logger)     
+        pbest[p], inc[p], pbestNumRuns[p], pbestTime[p], prevIncInsts[p] = updateIncumbent(p,pts,ptns,runs[p],pbest,prevIncInsts[p],prange,decayRate,alpha,minInstances,cutoff,logger) 
 
     
     lastCPUTime = updateCPUTime(gpsID,lastCPUTime,R)
@@ -349,10 +336,13 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
     fibSeq = [1,1,2,3]
     fibSeqInd = 1
 
+
     while not done:
         verbose = redisHelper.getVerbosity(gpsID,R)
         logger = getLogger(logLocation,verbose)
         for p in params:
+            pts, ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
+
             #logger.debug("Checking on parameter " + p)
             #Poll the current stat of the queue
             queueState.append(redisHelper.queueState(gpsID,R))
@@ -368,7 +358,7 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
             oldRuns = str(runs[p])
        
             #Get the new running times
-            runs[p] = redisHelper.getRuns(gpsID,p,R)
+            runs[p] = redisHelper.getRuns(gpsID,p,ptns,R)
 
             if(str(runs[p]) == oldRuns):
                 #logger.debug("Nothing has changed for this parameter. We are skipping it.")
@@ -377,18 +367,18 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
 
             logger.debug("Checking on parameter " + p)
 
-            #Updated the other parameters to obtain the current incumbent configuration
+            #Update the other parameters to obtain the current incumbent configuration
             alg[p]['params'] = pbest
-            redisHelper.updateBracket(gpsID,p,a[p],b[p],c[p],d[p],alg[p],R)
+            redisHelper.updateBracket(gpsID,p,pts,ptns,alg[p],R)
 
             #Get the performance estimate for each point
             f = {} 
-            for pt in ['a','b','c','d']:
-                f[pt] = calPerf(p,runs[p][pt],pbest,prange,decayRate)
+            for ptn in ptns:
+                f[ptn] = calPerf(p,runs[p][ptn],pbest,prange,decayRate)
 
             #Update the incumbent
             oldPbest = str(pbest[p])
-            pbest[p], inc[p], pbestNumRuns[p], pbestTime[p], prevIncInsts[p] = updateIncumbent(p,a[p],b[p],c[p],d[p],runs[p],pbest,prevIncInsts[p],prange,decayRate,alpha,minInstances,cutoff,logger)
+            pbest[p], inc[p], pbestNumRuns[p], pbestTime[p], prevIncInsts[p] = updateIncumbent(p,pts,ptns,runs[p],pbest,prevIncInsts[p],prange,decayRate,alpha,minInstances,cutoff,logger)
             redisHelper.saveIncumbent(gpsID,p,pbest[p],pbestNumRuns[p],pbestTime[p],R)
             if(not str(pbest[p]) == oldPbest):
                 incumbentTrace.append((time.time(),cp.deepcopy(pbest)))
@@ -406,83 +396,133 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
             logger.debug("CPU Time Used: " + str(budget['totalCPUTime']) + " (Seconds)")
             logger.debug("Wall-clock Time Used: " + str(time.time() - budget['startTime']) + " (Seconds)")
      
-
-            logger.debug("Points: " + str([a[p],c[p],d[p],b[p]]))
-            logger.debug("Function Values: " + str([f['a'], f['c'], f['d'], f['b']]))
+            if(paramType[p] in ['real','integer']):
+                logger.debug("Points: " + str([a[p],c[p],d[p],b[p]]))
+                logger.debug("Function Values: " + str([f['a'], f['c'], f['d'], f['b']]))
+            else
+                logger.debug("Points: " + str(pts))
+                logger.debug("Function Values: " + str([f[ptn] for ptn in ptns]))
 
             #Get the relative ordering of the performances as defined by a permutation test
-            comp = permTestSep(p,runs[p],pbest,prange,decayRate,alpha,minInstances,cutoff,logger) 
+            comp = permTestSep(p,ptns,runs[p],pbest,prange,decayRate,alpha,minInstances,cutoff,logger) 
             
             log = 'Permutation test ordering: a'
-            pts = ['a','c','d','b']
+            if(paramType[p] in ['real','integer']):
+                sptns = ['a','c','d','b']
+            else:
+                sinds = sorted(range(0,len(pts)),lambda i:f[ptns[i]])
+                sptns = [ptns[i] for i in sinds]
             for k in range(0,3):
-                if(comp[(pts[k],pts[k+1])] == 0):
+                if(comp[(sptns[k],sptns[k+1])] == 0):
                     log += ' = ' 
-                elif(comp[(pts[k],pts[k+1])] > 0):
+                elif(comp[(sptns[k],sptns[k+1])] > 0):
                     log += ' > '
                 else:
                     log += ' < '
-                log += pts[k+1]
+                log += sptns[k+1]
 
             logger.debug(log)
 
-
-
-            #Calculate what operation we should take next -- this is the core logic of GPS
-            op, direction, weakness = getNextOp(a[p],b[p],c[p],d[p],comp,integer[p])
-
-            logger.debug(str([p,op,direction,weakness]))
-
-            if((op == 'Keep' or op == 'NoShrink') and not doneIterRuns(runs[p],weakness,len(instSet[p]),cutoff)):
-                #Queue the next set of runs for this iteration, if necessary, or just keep waiting.
-                qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,op,direction,weakness,instIncr,gpsID,R,logger)
-                #We append the queue state twice, this time it is measured right before 
-                #the next batch of runs of aqueued, to make sure that we don't biase our
-                #results based on the queue state taken only directly after the runs are queued.
-                queueState.append(qs)
-            else:
+           
+            if(paramType[p] in ['real','integer']):
                 #Calculate what operation we should take next -- this is the core logic of GPS
-                #op, direction, weakness = getNextOp(a[p],b[p],c[p],d[p],comp,integer[p])
+                op, direction, weakness = getNextOp(a[p],b[p],c[p],d[p],comp,integer[p])
 
-                logger.debug("We finished an 'iteration' for this parameter.")
-                incrIters(gpsID,R)
-                
-                #Perform and expand or shrink operation, if necessary
-                if(not removesIncumbent(op,direction,inc[p])):
-                    if(op == 'Expand'):
-                        a[p],b[p],c[p],d[p],runs[p] = expand(a[p],b[p],c[p],d[p],runs[p],direction,integer[p]) 
-                    elif(op == 'Shrink'):
-                        a[p],b[p],c[p],d[p],runs[p] = shrink(a[p],b[p],c[p],d[p],runs[p],direction,integer[p])
+                logger.debug(str([p,op,direction,weakness]))
 
-                    decisionSeq.append((p,op,time.time()))
+                if((op == 'Keep' or op == 'NoShrink') and not doneIterRuns(runs[p],weakness,len(instSet[p]),cutoff)):
+                    #Queue the next set of runs for this iteration, if necessary, or just keep waiting.
+                    qs = queueRuns(runs[p],pts,ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                    #We append the queue state twice, this time it is measured right before 
+                    #the next batch of runs of aqueued, to make sure that we don't biase our
+                    #results based on the queue state taken only directly after the runs are queued.
+                    queueState.append(qs)
                 else:
-                    decisionSeq.append((p,'No' + op,time.time()))
+                    #Calculate what operation we should take next -- this is the core logic of GPS
+                    #op, direction, weakness = getNextOp(a[p],b[p],c[p],d[p],comp,integer[p])
 
-                #Updated the other parameters to obtain the current incumbent configuration
-                alg[p]['params'] = pbest
-                redisHelper.updateBracket(gpsID,p,a[p],b[p],c[p],d[p],alg[p],R)
+                    logger.debug("We finished an 'iteration' for this parameter.")
+                    incrIters(gpsID,R)
+                
+                    #Perform and expand or shrink operation, if necessary
+                    if(not removesIncumbent(op,direction,inc[p])):
+                        if(op == 'Expand'):
+                            a[p],b[p],c[p],d[p],runs[p] = expand(a[p],b[p],c[p],d[p],runs[p],direction,integer[p]) 
+                        elif(op == 'Shrink'):
+                            a[p],b[p],c[p],d[p],runs[p] = shrink(a[p],b[p],c[p],d[p],runs[p],direction,integer[p])
 
-                #Updating the bracket changed the location of the runs, we need to update that now.
-                runs[p] = redisHelper.getRuns(gpsID,p,R) 
+                        decisionSeq.append((p,op,time.time()))
+                    else:
+                        decisionSeq.append((p,'No' + op,time.time()))
+
+                    #Updated the other parameters to obtain the current incumbent configuration
+                    alg[p]['params'] = pbest
+                    redisHelper.updateBracket(gpsID,p,[a[p],b[p],c[p],d[p]],ptns,alg[p],R)
+
+                    #Updating the bracket changed the location of the runs, we need to update that now.
+                    runs[p] = redisHelper.getRuns(gpsID,p,ptns,R) 
  
-                #Add instIncr new instances to the instance set.
-                for k in range(0,instIncr):
-                    #instSet[p].append((insts[i[p]],100001 + si[p]))
-                    instSet[p].append((insts[i[p]],random.randrange(100000000, 999999999)))
-                    i[p] += 1
-                    si[p] += 1
-                    i[p] %= len(insts)
-                #queues runs on all of the points as needed until:
-                # - each point has been run on at least minInstances instances or has been eliminated by the adpative cap; AND
-                # - there is enough statistical evidence to make a decision about what operation to make next; OR
-                # - no decision can be made after running the incumbent and it's challenger on all of instSet.
-                # In addition, it will only queue runs for a point in groups that have a size equal to a power of 2, such that each
-                # subequent group is only queued once the results have been obtained for all of the previous runs for that point.
-                qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,op,direction,weakness,instIncr,gpsID,R,logger)
-                #We append the queue state twice, this time it is measured right before 
-                #the next batch of runs of aqueued, to make sure that we don't biase our
-                #results based on the queue state taken only directly after the runs are queued.
-                queueState.append(qs)
+                    #Add instIncr new instances to the instance set.
+                    for k in range(0,instIncr):
+                        #instSet[p].append((insts[i[p]],100001 + si[p]))
+                        instSet[p].append((insts[i[p]],random.randrange(100000000, 999999999)))
+                        i[p] += 1
+                        si[p] += 1
+                        i[p] %= len(insts)
+                    #queues runs on all of the points as needed until:
+                    # - each point has been run on at least minInstances instances or has been eliminated by the adpative cap; AND
+                    # - there is enough statistical evidence to make a decision about what operation to make next; OR
+                    # - no decision can be made after running the incumbent and it's challenger on all of instSet.
+                    # In addition, it will only queue runs for a point in groups that have a size equal to a power of 2, such that each
+                    # subequent group is only queued once the results have been obtained for all of the previous runs for that point.
+                    qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                    #We append the queue state twice, this time it is measured right before 
+                    #the next batch of runs of aqueued, to make sure that we don't biase our
+                    #results based on the queue state taken only directly after the runs are queued.
+                    queueState.append(qs)
+            else:
+                #The parameter is categorical.
+
+                #If there is only a single statistically significant winner, then we do not need to 
+                #perform any new runs. We are done. Note that as other parameters chance this information
+                #will decay and we will end up needing to restart this race later. 
+                singleWinner = True
+                for ptn in ptns:
+                    if(not ptn == inc[p]):
+                        singleWinner = singleWinner and comp[(inc[p],ptn)] > 0
+                if(singleWinner):
+                    logger.debug("Recording the queue state")
+                    qs = redisHelper.queueState(gpsID,R)
+                    queueState.append(qs)
+                elif(not doneIterRuns(runs[p],ptns,len(instSet[p]),cutoff)):
+                    #Queue the next set of runs for this iteration, if necessary, or just keep waiting.
+                    qs = queueRuns(runs[p],pts,ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                    #We append the queue state twice, this time it is measured right before 
+                    #the next batch of runs are queued, to make sure that we don't biase our
+                    #results based on the queue state taken only directly after the runs are queued.
+                    queueState.append(qs)
+                else:
+                    #We have completed all of the runs in the previous iteration of the race. 
+                    #Add instIncr new instances to the instance set.
+                    for k in range(0,instIncr):
+                        #instSet[p].append((insts[i[p]],100001 + si[p]))
+                        instSet[p].append((insts[i[p]],random.randrange(100000000, 999999999)))
+                        i[p] += 1
+                        si[p] += 1
+                        i[p] %= len(insts)
+                    #queues runs on all of the points as needed until:
+                    # - each point has been run on at least minInstances instances or has been eliminated by the adpative cap; AND
+                    # - there is enough statistical evidence to make a decision about what operation to make next; OR
+                    # - no decision can be made after running the incumbent and it's challenger on all of instSet.
+                    # In addition, it will only queue runs for a point in groups that have a size equal to a power of 2, such that each
+                    # subequent group is only queued once the results have been obtained for all of the previous runs for that point.
+                    qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                    #We append the queue state twice, this time it is measured right before 
+                    #the next batch of runs of aqueued, to make sure that we don't biase our
+                    #results based on the queue state taken only directly after the runs are queued.
+                    queueState.append(qs)
+
+ 
 
             lastCPUTime = updateCPUTime(gpsID,lastCPUTime,R)
 
@@ -542,14 +582,21 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
 
 
 
-def newRuns():
-    return {'a':newPt(),'b':newPt(),'c':newPt(),'d':newPt()}
+def getPtsPtns(p,paramType,prange,a,c,b,d):
+    if(paramType[p] in ['integer','real']):
+        pts = [a[p],b[p],c[p],d[p]]
+        ptns = ['a','b','c','d']
+    else:
+        pts = prange[p]
+        ptns = prange[p]
 
+    return pts,ptns
+ 
 
-def newCatRuns(values):
+def newRuns(ptns):
     runs = {}
-    for v in values:
-        runs[v] = newPt()
+    for ptn in ptns:
+        runs[ptn] = newPt()
     return runs
 
 def newPt():
@@ -781,7 +828,7 @@ def removesIncumbent(op,direction,inc):
     return False
 
 
-def runDefault(params,p0,instSet,alg,gpsID,R,logger):
+def runDefault(params,p0,prange,paramType,instSet,alg,gpsID,R,logger):
     #Author: YP 
     #Created: 2018-07-12
     #Last Updated: 2019-03-05
@@ -828,17 +875,22 @@ def runDefault(params,p0,instSet,alg,gpsID,R,logger):
 
     #Copy the results into all of the other parameters.
     for p in params[1:]:
-        redisHelper.addRun(gpsID,p,p0[p],inst,seed,runStatus,PAR10,{'params':pbestOld},adaptiveCap,redisHelper.getRunID(gpsID,R),logger,R)
+        if(paramType[p] in ['integer','real']):
+            ptns = ['a','b','c','d']
+        else
+            ptns = prange[p]
+        redisHelper.addRun(gpsID,p,p0[p],ptns,inst,seed,runStatus,PAR10,{'params':pbestOld},adaptiveCap,redisHelper.getRunID(gpsID,R),logger,R)
         redisHelper.saveIncumbent(gpsID,p,p0[p],1,PAR10,R)
 
     return True
     
 
 
-def queueRuns(runs,pts,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alpha,integer,minInstances,budget,comp,op,direction,weakness,instIncr,gpsID,R,logger):
+def queueRuns(runs,pts,ptns,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alpha,integer,minInstances,budget,comp,weakness,instIncr,gpsID,R,logger):
     #Author: YP
     #Created: 2018-07-04
-    #Last updated: 2018-09-21
+    #Last updated: 2019-03-06
+    #Conforms to cat format.
     #Queues the next set of runs for the target parameter. Uses a doubling scheme to increase the number of 
     #runs entered into the queue at each step for challenging parameter values. 
     #Only enters runs for a challenging parameter value if there is not evidence that it performs worse than
@@ -848,20 +900,18 @@ def queueRuns(runs,pts,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alpha,int
     #that we obtain statistically significant heuristic evidence (via the permutation test heuristic) to distinguish
     #between the two values in order to update the bracket. 
 
-    ptn = ['a','b','c','d']
-
     logger.debug('*'*50)
     logger.debug("Checking to see if we can queue new tasks.")
     logger.debug("instIncr: " + str(instIncr) + "; size of instSet: " + str(len(instSet)))
 
     logger.debug("Getting all currently alive tasks")
-    aliveSet, aliveAndActiveSet = redisHelper.getAllAlive(gpsID,p,pts,logger,R)
+    aliveSet, aliveAndActiveSet = redisHelper.getAllAlive(gpsID,p,pts,ptns,logger,R)
 
     toQueue = []
 
     #Queue each point separately
-    for j in range(0,4):
-        logger.debug("Working on: " + ptn[j])
+    for j in range(0,len(ptns)):
+        logger.debug("Working on: " + ptns[j])
         #Only queue instances in multiples of 2*instIncr
         i = 0 #Initially we already know that we are done 0*instIncr runs
         loopCount = 0
@@ -872,7 +922,7 @@ def queueRuns(runs,pts,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alpha,int
             logger.debug("Trying to queue the first " + str((i+1)*instIncr-1) + " runs for each point.")
             
             #Check if we have done (i+1)*instIncr runs
-            if(doneIterRuns(runs,[ptn[j]],(i+1)*instIncr,cutoff)):
+            if(doneIterRuns(runs,[ptns[j]],(i+1)*instIncr,cutoff)):
                 #Double i and see if we have completed the next set of runs
                 i = (i+1)*2-1
             else:
@@ -886,15 +936,15 @@ def queueRuns(runs,pts,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alpha,int
 
                 if((i+1)*instIncr-1 < minInstances or len(instSet) <= minInstances):
                     logger.debug("This is less than " + str(minInstances) + ", so we will queue them all.") 
-                    toQueue.extend(enqueueUnlessQueued(p,pts[j],ptn[j],(i+1)*instIncr-1,instSet,alg,runs,aliveSet,gpsID,R,logger))
+                    toQueue.extend(enqueueUnlessQueued(p,pts[j],ptns[j],(i+1)*instIncr-1,instSet,alg,runs,aliveSet,gpsID,R,logger))
                 else:
                     
-                    if(comp[ptn[j],inc] == 0): #Everything as good as the incumbent must be run on all instances
+                    if(comp[ptns[j],inc] == 0): #Everything as good as the incumbent must be run on all instances
                         logger.debug("It is indistinguishable from the incumbent.")
-                        toQueue.extend(enqueueUnlessQueued(p,pts[j],ptn[j],(i+1)*instIncr-1,instSet,alg,runs,aliveSet,gpsID,R,logger))
-                    elif(ptn[j] in weakness): #Anything that is stopping us from updating the bracket must be run.
+                        toQueue.extend(enqueueUnlessQueued(p,pts[j],ptns[j],(i+1)*instIncr-1,instSet,alg,runs,aliveSet,gpsID,R,logger))
+                    elif(ptns[j] in weakness): #Anything that is stopping us from updating the bracket must be run.
                         logger.debug("It is a part of the weakness.")
-                        toQueue.extend(enqueueUnlessQueued(p,pts[j],ptn[j],(i+1)*instIncr-1,instSet,alg,runs,aliveSet,gpsID,R,logger))
+                        toQueue.extend(enqueueUnlessQueued(p,pts[j],ptns[j],(i+1)*instIncr-1,instSet,alg,runs,aliveSet,gpsID,R,logger))
                     else:
                         logger.debug("It is worse than the incumbent, and not part of the weakness, so we will not queue these runs.")
                 #We have attempted to queue the largest things we are allowed to queue. So we just end the loop here.
@@ -903,11 +953,11 @@ def queueRuns(runs,pts,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alpha,int
         logger.debug("Checking for stale runs...")
 
         #Check to see if we need to requeue any target algorithm runs because they have become too stale
-        for (inst,seed) in runs[ptn[j]].keys():
+        for (inst,seed) in runs[ptns[j]].keys():
             #Check to see if the "trust" we have in this run has decayed below a given threshold.
-            runEqv = decayRate**calChanges(p,runs[ptn[j]][(inst,seed)][1],pbest,prange) 
-            if(runEqv < 0.05 and not redisHelper.stillInAliveSet(gpsID,p,pts[j],ptn[j],inst,seed,aliveAndActiveSet,R)):
-                logger.debug(str([p,ptn[j],inst,seed]) + " is too stale (" + str(runEqv) + "), we are re-queueing the run.")
+            runEqv = decayRate**calChanges(p,runs[ptns[j]][(inst,seed)][1],pbest,prange) 
+            if(runEqv < 0.05 and not redisHelper.stillInAliveSet(gpsID,p,pts[j],inst,seed,aliveAndActiveSet,R)):
+                logger.debug(str([p,ptns[j],inst,seed]) + " is too stale (" + str(runEqv) + "), we are re-queueing the run.")
                 toQueue.append([p,pts[j],inst,seed])
  
 
@@ -929,92 +979,6 @@ def queueRuns(runs,pts,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alpha,int
     logger.debug('*'*50)
 
     return queueState
-
-def queueCatRuns(runs,values,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alpha,paramType,minInstances,budget,eliminated,instIncr,gpsID,R,logger):
-    #Author: YP
-    #Created: 2018-03-15
-    #Queues the next batch of runs for the specified cateogircal parameter. It behaves much the same as the above queueRuns method; however,
-    #the only time a value has runs queued is if there is not statistically sufficient evidence to reject it as worse than the incumbent parameter value.
-
-    logger.debug('*'*50)
-    logger.debug("Checking to see if we can queue new tasks.")
-    logger.debug("instIncr: " + str(instIncr) + "; size of instSet: " + str(len(instSet)))
-
-    logger.debug("Getting all currently alive tasks")
-    aliveSet, aliveAndActiveSet = redisHelper.getAllCatAlive(gpsID,p,values,logger,R)
- 
-    toQueue = []
-
-    #Queue each point separately
-    for j in range(0,len(values)):
-        logger.debug("Working on: " + values[j])
-        #Only queue instances in multiples of 2*instIncr
-        i = 0 #Initially we already know that we are done 0*instIncr runs
-        loopCount = 0
-        while((i+1)*instIncr-1 < 2*len(instSet)):
-            loopCount += 1
-            if(loopCount > loopLimit):
-                logger.debug("INFINITE LOOP in queueRuns()?")
-            logger.debug("Trying to queue the first " + str((i+1)*instIncr-1) + " runs.")
-            
-            #Check if we have done (i+1)*instIncr runs
-            if(doneIterRuns(runs,[values[j]],(i+1)*instIncr,cutoff)):
-                #Double i and see if we have completed the next set of runs
-                i = (i+1)*2-1
-            else:
-                #By induction, we know we completed (i+1)/2*instIncr instances,
-                #but not (i+1)*instIncr instances, so we have found the largest
-                #multiple of 2 times instIncr with completed runs. This means we
-                #can try to queue up to (i+1)*instIncr instances.
-
-                logger.debug("It has completed at least " + str((i+1)/2*instIncr) + " runs.")
-                logger.debug("So we will consider queueing up to " + str((i+1)*instIncr) + " runs.")
-
-                if((i+1)*instIncr-1 < minInstances or len(instSet) <= minInstances):
-                    logger.debug("This is less than " + str(minInstances) + ", so we will queue them all.") 
-                    toQueue.extend(enqueueUnlessQueued(p,values[j],values[j],(i+1)*instIncr-1,instSet,alg,runs,aliveSet,gpsID,R,logger)) #TODO: Revisit this function.
-                else:
-                    
-                    if(values[j] not in eliminated): #Everything as good as the incumbent must be run on all instances
-                        logger.debug("It is indistinguishable from the incumbent.")
-                        toQueue.extend(enqueueUnlessQueued(p,values[j],values[j],(i+1)*instIncr-1,instSet,alg,runs,aliveSet,gpsID,R,logger))
-                    else:
-                        logger.debug("It is worse than the incumbent, and not part of the weakness, so we will not queue these runs.")
-                #We have attempted to queue the largest things we are allowed to queue. So we just end the loop here.
-                break
-
-        logger.debug("Checking for stale runs...")
-
-        #Check to see if we need to requeue any target algorithm runs because they have become too stale
-        for (inst,seed) in runs[values[j]].keys():
-            #Check to see if the "trust" we have in this run has decayed below a given threshold.
-            runEqv = decayRate**calChanges(p,runs[values[j]][(inst,seed)][1],pbest,prange) 
-            if(runEqv < 0.05 and not redisHelper.stillInAliveSet(gpsID,p,values[j],values[j],inst,seed,aliveAndActiveSet,R)): #TODO: Revisit this later.
-                logger.debug(str([p,values[j],inst,seed]) + " is too stale (" + str(runEqv) + "), we are re-queueing the run.")
-                toQueue.append([p,values[j],inst,seed])
- 
-
-    logger.debug("Recording the queue state")
-    queueState = redisHelper.queueState(gpsID,R)
-
-    #Randomly permute the list of tasks to queue.
-    random.shuffle(toQueue)
-              
-    if(len(toQueue) > 0): 
-        logger.debug("Queueing all " + str(len(toQueue)) + " tasks as a batch.")
-
-        #logger.debug(str(toQueue))
-
-        redisHelper.enqueueAll(gpsID,toQueue,R)
-    else:
-        logger.debug("Nothing to queue, everything is already active.")
-                
-    logger.debug('*'*50)
-
-    return queueState
-
-  
-
 
 
 def doneIterRuns(runs,ptns,n,cutoff):
