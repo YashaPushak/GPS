@@ -255,10 +255,10 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
             if(paramType[p] == 'integer'):
                 a[p],b[p],c[p],d[p] = rnd(a[p],b[p],c[p],d[p])
 
-            redisHelper.initializeBracket(gpsID,p,a[p],b[p],c[p],d[p],alg[p],R)
+            redisHelper.initializeBracket(gpsID,p,[a[p],b[p],c[p],d[p]],['a','b','c','d'],alg[p],R)
             redisHelper.saveIncumbent(gpsID,p,p0[p],0,cutoff*10,R)
         else:
-            redisHelper.initializeCat(gpsID,p,prange[p],alg[p],R)
+            redisHelper.initializeCat(gpsID,p,prange[p],prange[p],alg[p],R)
             redisHelper.saveIncumbent(gpsID,p,p0[p],0,cutoff*10,R)
     
         #Perform a small number of initial runs so that we don't immediately make decisions that over-fit to random noise.
