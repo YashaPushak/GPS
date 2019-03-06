@@ -245,13 +245,14 @@ def updateIncumbent(p,a,b,c,d,runs,pbest,prevIncInsts,prange,decayRate,alpha,min
             inc = d
            
         #Make sure that the new incumbent has been run on a superset of the
-        #instances on which the previous incumbent was run. 
+        #instances on which the previous incumbent was run. and that at least
+        #minInstances run equivalents have been performed.
         superSet = True
         for (inst,seed) in prevIncInsts:
             if( (inst,seed) not in runs[order[i]].keys()):
                 superSet = False
                 break
-        if(superSet):
+        if(superSet and numRunsEqvs[order[i]] >= minInstances):
             #We have found the incumbent, we can stop.
             break    
 
@@ -460,8 +461,6 @@ def permTestSep(parameter,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,
         if(not neverCapped(runs,ptn[j],cutoff)):
             #This value has exceeded the bound multiplier times the incumbent's performance. So we are not going to perform permutation tests for it, instead we will assume it, and any others like it, are all equally larger than all other points.
             eliminated.append(ptn[j])
-
-    alpha /= 6 #Bonferroni multiple test correction
 
     #comp will accept tuples and return -1,0, or 1, depending on whether or not the tuples contain values that are separable by
     #the permutation test. The syntax is chosen such that "comp[(p0,p1)] <operator> 0" translates naturally to  "p0 <operator> p1"

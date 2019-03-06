@@ -128,6 +128,11 @@ def isRunning(gpsID,p,pt,inst,seed,R):
 
     return res is not None
 
+
+def getAllCatAlive(gpsID,p,values,logger,R):
+    #TODO
+
+
 def getAllAlive(gpsID,p,pts,logger,R):
     
     logger.debug("Entering getAllAlive()")
@@ -298,6 +303,19 @@ def initializeBracket(gpsID,p,a,b,c,d,alg,R):
 
     R.hmset('bracketState:' + str(gpsID) + ':' + p,mapping)
 
+
+def initializeCat(gpsID,p,values,alg,R):
+    #Author: YP
+    #Created: 2019-03-05
+
+    mapping = {}
+    mapping['values'] = values
+    mapping['alg'] = alg
+
+    R.hmset('catState:' + str(gpsID) + ':' + p,mapping)
+
+
+
 def updateBracket(gpsID,p,a,b,c,d,alg,R):
 
     pts = [a,b,c,d]
@@ -428,6 +446,10 @@ def addRun(gpsID,p,pt,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R):
     
 
 def getRuns(gpsID,p,R):
+    #TODO: Add support for categorical parameters. Current the gps code assumes
+    #that we can check if a parameter is categorical within this function, and
+    #then returns the same run format as was used before, but instead of values
+    #'a','b','c','d' we return the parameter value names. 
 
     gpsID = str(gpsID)
 
