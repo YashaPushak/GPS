@@ -327,7 +327,7 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
 
         #Get the performance estimate for each point
         f = {} 
-        for pt in ['a','b','c','d']:
+        for pt in runs[p].keys():
             f[pt] = calPerf(p,runs[p][pt],pbest,prange,decayRate)
 
         #Update the incumbent
