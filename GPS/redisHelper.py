@@ -102,7 +102,7 @@ def setRunning(gpsID,p,pt,inst,seed,cap,R):
 
     task = toTaskString([p,pt,inst,seed])
 
-    #Set the status fo the run to running
+    #Set the status for the run to running
     R.set('task:' + task,'Started running at ' + str(time.time()))
     R.expire('task:' + task,int(cap*2))
 
@@ -129,11 +129,11 @@ def isRunning(gpsID,p,pt,inst,seed,R):
     return res is not None
 
 
-def getAllCatAlive(gpsID,p,values,logger,R):
-    #TODO
 
-
-def getAllAlive(gpsID,p,pts,logger,R):
+def getAllAlive(gpsID,p,pts,ptns,logger,R):
+    #Author: YP
+    #Last updated: 2019-03-06
+    #Updated to take in the ptns (names of the parameter values, e.g., a,b,c,d, or categorical names) and pts (values of the parameters,e.g., 1,2,3, or categorical names)
     
     logger.debug("Entering getAllAlive()")
 
@@ -141,7 +141,7 @@ def getAllAlive(gpsID,p,pts,logger,R):
         while 1:
             try:
                 logger.debug("Setting watch")
-                pipe.watch('taskQueue:' + str(gpsID), 'taskQueueMembers:' + str(gpsID),'runs:' + str(gpsID) + ':' + p + ':a','runs:' + str(gpsID) + ':' + p + ':b','runs:' + str(gpsID) + ':' + p + ':c','runs:' + str(gpsID) + ':' + p + ':d')
+                pipe.watch('taskQueue:' + str(gpsID), 'taskQueueMembers:' + str(gpsID),*['runs:' + str(gpsID) + ':' + p + ':' + ptn for ptn in ptns])
 
                 #logger.debug("Entering multi")
                 #pipe.multi()                
@@ -155,7 +155,7 @@ def getAllAlive(gpsID,p,pts,logger,R):
                 logger.debug("Getting runs")
                  
                 tmpRuns = {}
-                for ptn in ['a','b','c','d']:
+                for ptn in ptns:
                     tmpRuns[ptn] = pipe.hgetall('runs:' + str(gpsID) + ':' + p + ':' + ptn)
 
                 logger.debug("Executing the pipeline")
@@ -173,7 +173,7 @@ def getAllAlive(gpsID,p,pts,logger,R):
 
     logger.debug("Running eval() on the runs.") 
     runs = {}
-    for ptn in ['a','b','c','d']:
+    for ptn in ptns:
         runs[ptn] = {}
 
         for key in tmpRuns[ptn].keys():
@@ -194,8 +194,7 @@ def getAllAlive(gpsID,p,pts,logger,R):
             aliveAndActive.add(toTaskString(k[5:]))
 
     logger.debug("Adding each completed run to the alive set.")
-    ptns = ['a','b','c','d']
-    for j in range(0,4):
+    for j in range(0,len(ptns)):
         ptn = ptns[j]
         pt = pts[j]
         for (inst,seed) in runs[ptn].keys():
@@ -210,7 +209,10 @@ def toTaskString(task):
    return str(task).replace(' ','-').replace(',','') 
 
                    
-def stillInAliveSet(gpsID,p,pt,ptn,inst,seed,aliveSet,R):
+def stillInAliveSet(gpsID,p,pt,inst,seed,aliveSet,R):
+    #Author: YP
+    #Last updated: 2019-03-06
+    #Updated to remove ptn since it was never actually used.
 
     task = toTaskString([p,pt,inst,seed])
 
@@ -292,52 +294,43 @@ def updateBudget(gpsID,budgetIncrs,R):
                 continue
 
 
-def initializeBracket(gpsID,p,a,b,c,d,alg,R):
+def initializeBracket(gpsID,p,pts,ptns,alg,R):
+    #Author: YP
+    #Last updated: 2019-03-06
+    #Updated to take in an array of parameter name (ptns) and values (pts)
+
 
     mapping = {}
-    mapping['a'] = a
-    mapping['b'] = b
-    mapping['c'] = c
-    mapping['d'] = d
+    for i in range(0,len(ptns)):
+        mapping[ptns[i]] = pts[i]
     mapping['alg'] = alg
 
     R.hmset('bracketState:' + str(gpsID) + ':' + p,mapping)
 
 
-def initializeCat(gpsID,p,values,alg,R):
+
+def updateBracket(gpsID,p,pts,ptns,alg,R):
     #Author: YP
-    #Created: 2019-03-05
-
-    mapping = {}
-    mapping['values'] = values
-    mapping['alg'] = alg
-
-    R.hmset('catState:' + str(gpsID) + ':' + p,mapping)
-
-
-
-def updateBracket(gpsID,p,a,b,c,d,alg,R):
-
-    pts = [a,b,c,d]
-    ptns = ['a','b','c','d']
+    #Last updated: 2019-03-06
+    #Updated to conform to the new argument format. This should actually never be run with categorical parameters anyways, but it's still good to conform. 
 
    
     with R.pipeline() as pipe:
         while 1:
             try:
-                pipe.watch('bracketState:' + str(gpsID) + ':' + p,'runs:' + str(gpsID) + ':' + p + ':a','runs:' + str(gpsID) + ':' + p + ':b','runs:' + str(gpsID) + ':' + p + ':c','runs:' + str(gpsID) + ':' + p + ':d')
+                pipe.watch('bracketState:' + str(gpsID) + ':' + p,*['runs:' + str(gpsID) + ':' + p + ':' + ptn for ptn in ptns])
 
                 #Grab the runs.
                 runs = getRunsNoPipe(gpsID,p,pipe)
                 
                 #Get the old bracket meta-data
-                oldA,oldB,oldC,oldD,oldAlg = getBracket(gpsID,p,pipe)
-                oldPts = [oldA,oldB,oldC,oldD]               
+                oldPts,oldPtns,oldAlg = getBracket(gpsID,p,pipe)
+                oldPts
 
                 pipe.multi()
 
                 #change the bracket's meta-data
-                initializeBracket(gpsID,p,a,b,c,d,alg,pipe)
+                initializeBracket(gpsID,p,pts,ptns,alg,pipe)
 
                 #Now the tricky part: updating the run information to match the new bracket points.
                 for i in range(0,4):
@@ -365,16 +358,20 @@ def updateBracket(gpsID,p,a,b,c,d,alg,R):
    
 
 def getBracket(gpsID,p,R):
+    #Author: YP
+    #Last updated: 2019-03-06
+    #Conforms to the new cat format. 
 
     mapping = R.hgetall('bracketState:' + str(gpsID) + ':' + p)
 
-    a = eval(mapping['a'])
-    b = eval(mapping['b'])
-    c = eval(mapping['c'])
-    d = eval(mapping['d'])
+    ptns = sorted(mapping.keys())
+    pts = []
+    for ptn in ptns:
+        pts.append(eval(mapping[ptn]))
+
     alg = eval(mapping['alg'])
 
-    return a,b,c,d,alg
+    return pts,ptns,alg
 
 
 def setPoint(gpsID,p,ptn,runs,R):
@@ -388,9 +385,10 @@ def setPoint(gpsID,p,ptn,runs,R):
         R.hmset('runs:' + str(gpsID) + ':' + p + ':' + ptn,runs)
 
 
-def addRun(gpsID,p,pt,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R):
+def addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R):
     #Author: YP
     #Created: 2018-07-08
+    #Last updated: 2019-03-06
 
     task = toTaskString([p,pt,inst,seed])
 
@@ -401,7 +399,7 @@ def addRun(gpsID,p,pt,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R):
             try:
                 #Watch to see if the bracket us updated before we have added
                 #The run.
-                pipe.watch('bracketState:' + str(gpsID) + ':' + p,'runs:' + str(gpsID) + ':' + p + ':a','runs:' + str(gpsID) + ':' + p + ':b','runs:' + str(gpsID) + ':' + p + ':c','runs:' + str(gpsID) + ':' + p + ':d','task:' + task,'runID:' + str(gpsID))
+                pipe.watch('bracketState:' + str(gpsID) + ':' + p,'task:' + task,'runID:' + str(gpsID),*['runs:' + str(gpsID) + ':' + p + ':' + ptn for ptn in ptns])
 
                 curRunID = getRunID(gpsID,pipe)
 
@@ -409,23 +407,19 @@ def addRun(gpsID,p,pt,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R):
                     logger.info("WE ARE DISCARDING THIS RUN BECAUSE THE GPS RUN ID HAS CHANGED.")
                     break
 
-                a,b,c,d,alg = getBracket(gpsID,p,R)
+                pts,ptns,alg = getBracket(gpsID,p,R)
 
-                if(a == pt):
-                    ptn = 'a'
-                elif(b == pt):
-                    ptn = 'b'
-                elif(c == pt):
-                    ptn = 'c'
-                elif(d == pt):
-                    ptn = 'd'
-                else:
+                if(pt not in pts):
                     #The bracket was updated and this point was removed
                     #while the run was in progress. We can just discard this
                     #run.
                     logger.info("DISCARDING THIS RUN: " + str([p,pt,inst,seed,res,runtime,alg,adaptiveCap]))
                     pipe.delete('task:' + task)
                     break
+               for i in range(0,len(ptns)):
+                   if(pt == pts[i]):
+                       ptn = ptns[i]
+                       break
 
                 pipe.hset('runs:' + str(gpsID) + ':' + p + ':' + ptn,(inst,seed),[runtime,alg['params'],res,adaptiveCap])
   
@@ -445,11 +439,10 @@ def addRun(gpsID,p,pt,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R):
 
     
 
-def getRuns(gpsID,p,R):
-    #TODO: Add support for categorical parameters. Current the gps code assumes
-    #that we can check if a parameter is categorical within this function, and
-    #then returns the same run format as was used before, but instead of values
-    #'a','b','c','d' we return the parameter value names. 
+def getRuns(gpsID,p,ptns,R):
+    #Author: YP
+    #Last updated: 2019-03-06
+    #Conforms to cat format.
 
     gpsID = str(gpsID)
 
@@ -459,14 +452,14 @@ def getRuns(gpsID,p,R):
         while 1:
             try:
                 #Watch to see if any of them change
-                pipe.watch('runs:' + str(gpsID) + ':' + p + ':a','runs:' + str(gpsID) + ':' + p + ':b','runs:' + str(gpsID) + ':' + p + ':c','runs:' + str(gpsID) + ':' + p + ':d')
+                pipe.watch(*['runs:' + str(gpsID) + ':' + p + ':' + ptn for ptn in ptns])
  
                 #buffer the commands
                 #pipe.multi()
 
                 #Add the commands to the buffer
                 tmpRuns = {}
-                for ptn in ['a','b','c','d']:
+                for ptn in ptns:
                     tmpRuns[ptn] = pipe.hgetall('runs:' + gpsID + ':' + p + ':' + ptn)
 
                 #Execute the pipeline
@@ -482,7 +475,7 @@ def getRuns(gpsID,p,R):
                 continue
 
     runs = {}
-    for ptn in ['a','b','c','d']:
+    for ptn in ptns:
         runs[ptn] = {}
 
         for key in tmpRuns[ptn].keys():
@@ -495,9 +488,12 @@ def getRuns(gpsID,p,R):
 
 
 def getRunsNoPipe(gpsID,p,R,ptns=['a','b','c','d']):
-    
+    #Author: YP
+    #Last updated: 2019-03-06
+    #Conforms to cat format.   
+ 
     runs = {}
-    for ptn in ['a','b','c','d']:
+    for ptn in ptns:
         runs[ptn] = {}
 
         tmpRuns = R.hgetall('runs:' + str(gpsID) + ':' + p + ':' + ptn)
@@ -535,6 +531,10 @@ def getIncumbent(gpsID,p,R):
 
 
 def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,logger):
+    #Author: YP
+    #last updated: 2019-03-06
+    #Conforms to cat format.
+
 
     #Until we have succeeded, keep trying
     with R.pipeline() as pipe:
@@ -572,25 +572,20 @@ def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,lo
                 #print(runs)
 
                 #Get the bracket information
-                a,b,c,d,alg = getBracket(gpsID,p,pipe)
+                pts,ptns,alg = getBracket(gpsID,p,pipe)
 
                 #print([a,b,c,d,alg]) 
 
                 #pipe.execute()
- 
-                if(a == pt):
-                    ptn = 'a'
-                elif(b == pt):
-                    ptn = 'b'
-                elif(c == pt):
-                    ptn = 'c'
-                elif(d == pt):
-                    ptn = 'd'
-                else:
+
+                if(pt not in pts): 
                     #The bracket has changed and we no longer need to evaluate
                     #this point. Continue and try the next point.
                     R.incr("RemovedCount")
                     continue
+                for i in range(0,len(ptns)):
+                    if(pt == pts[i]):
+                        ptn = ptns[i]
 
                 #incVal,numRunsInc,incStat = getIncumbent(gpsID,p,pipe)
 
@@ -717,8 +712,8 @@ def showTaskQueue(gpsID):
 def showBracket(gpsID,p):
      #Author: YP
      #Created; 2018-07-13
-
-     ptns = ['a','c','d','b']
+     #Last updated: 2019-03-06
+     #Conforms to cat format.
 
      oldStatus = ''
 
@@ -734,7 +729,7 @@ def showBracket(gpsID,p):
         
          try:
              runs = getRuns(gpsID,p,R)
-             a,b,c,d,alg = getBracket(gpsID,p,R)
+             pts,ptns,alg = getBracket(gpsID,p,R)
              incVal,numRuns,incStat = getIncumbent(gpsID,p,R) 
          except:
              print("Caught error, continuing...")
@@ -747,10 +742,15 @@ def showBracket(gpsID,p):
                  if(inst not in insts):
                      insts.append(inst)
 
+         sinds = range(0,len(ptns))
+         sinds = sorted(sinds,key = lambda i,pts[i])
+         pts = [pts[i] for i in sinds]
+         ptns = [ptns[i] for i in sinds]
+
          status = '-'*20 + p + ":" + str(incVal) + '-'*20 + '\n'
-         for i in range(0,4):
+         for i in range(0,len(ptns)):
              ptn = ptns[i]
-             pt = [a,c,d,b][i]
+             pt = pts[i]
              if(pt == incVal):
                  status += '*'
              else:
