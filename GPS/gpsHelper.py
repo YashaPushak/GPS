@@ -267,7 +267,7 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
             #the previous incumbent. This can happen when the incumbent is
             #removed from the bracket (which can occur if the bracket appears
             #to be non-uni-modal).
-            comp = permTestSep(p,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger)
+            comp = permTestSep(p,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger)
             #We pick the new incumbent to be any of the statistically best
             #performance (according to the permutation test), that have been
             #run on at least minInstances instances.

@@ -123,7 +123,7 @@ def parseParameters(paramFile):
 
 
         #alg,params[pInd]['name'],params[pInd]['default'],params[pInd]['pmin'],params[pInd]['pmax'],params[pInd]['integer'],insts,cutoff,minInstances,rId,wallBudget/n,cpuBudget/n,runBudget/n,iterBudget/n,numRuns,alpha,tol,decayRate,boundMult,s,comDir,verbose
-def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=float('inf'),cpuBudget=float('inf'),runBudget=float('inf'),iterBudget=float('inf'),alpha=0.05,decayRate=0.01,boundMult=2,s=-1,instIncr=1,host='ada-udc.cs.ubc.ca',port=9503,dbid=0,gpsID=0,verbose=1,logLocation=''):
+def gps(alg,params,p0,prange,paramType,insts,cutoff,minInstances=10,wallBudget=float('inf'),cpuBudget=float('inf'),runBudget=float('inf'),iterBudget=float('inf'),alpha=0.05,decayRate=0.01,boundMult=2,s=-1,instIncr=1,host='ada-udc.cs.ubc.ca',port=9503,dbid=0,gpsID=0,verbose=1,logLocation=''):
     #Author: YP
     #Created: 2018-04-10
     #Last modified: 209-03-05
@@ -432,7 +432,7 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
 
                 if((op == 'Keep' or op == 'NoShrink') and not doneIterRuns(runs[p],weakness,len(instSet[p]),cutoff)):
                     #Queue the next set of runs for this iteration, if necessary, or just keep waiting.
-                    qs = queueRuns(runs[p],pts,ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                    qs = queueRuns(runs[p],pts,ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p] == 'integer',minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
                     #We append the queue state twice, this time it is measured right before 
                     #the next batch of runs of aqueued, to make sure that we don't biase our
                     #results based on the queue state taken only directly after the runs are queued.
@@ -475,7 +475,7 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
                     # - no decision can be made after running the incumbent and it's challenger on all of instSet.
                     # In addition, it will only queue runs for a point in groups that have a size equal to a power of 2, such that each
                     # subequent group is only queued once the results have been obtained for all of the previous runs for that point.
-                    qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                    qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p] == 'integer',minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
                     #We append the queue state twice, this time it is measured right before 
                     #the next batch of runs of aqueued, to make sure that we don't biase our
                     #results based on the queue state taken only directly after the runs are queued.
@@ -496,7 +496,7 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
                     queueState.append(qs)
                 elif(not doneIterRuns(runs[p],ptns,len(instSet[p]),cutoff)):
                     #Queue the next set of runs for this iteration, if necessary, or just keep waiting.
-                    qs = queueRuns(runs[p],pts,ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                    qs = queueRuns(runs[p],pts,ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p] == 'integer',minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
                     #We append the queue state twice, this time it is measured right before 
                     #the next batch of runs are queued, to make sure that we don't biase our
                     #results based on the queue state taken only directly after the runs are queued.
@@ -516,7 +516,7 @@ def gps(alg,params,p0,prange,integer,insts,cutoff,minInstances=10,wallBudget=flo
                     # - no decision can be made after running the incumbent and it's challenger on all of instSet.
                     # In addition, it will only queue runs for a point in groups that have a size equal to a power of 2, such that each
                     # subequent group is only queued once the results have been obtained for all of the previous runs for that point.
-                    qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,integer[p],minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                    qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p] == 'integer',minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
                     #We append the queue state twice, this time it is measured right before 
                     #the next batch of runs of aqueued, to make sure that we don't biase our
                     #results based on the queue state taken only directly after the runs are queued.
@@ -843,6 +843,8 @@ def runDefault(params,p0,prange,paramType,instSet,alg,gpsID,R,logger):
     #GPS if the default configuration crashes.
 
     p = params[0]
+    pts,ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
+
 
     (inst,seed) = instSet[p][0]
 
@@ -859,7 +861,7 @@ def runDefault(params,p0,prange,paramType,instSet,alg,gpsID,R,logger):
         loopCount += 1
         if(loopCount >= loopLimit):
             logger.debug("INFINITE LOOP in runDefault()?")
-        runs = redisHelper.getRuns(gpsID,p,R)
+        runs = redisHelper.getRuns(gpsID,p,ptns,R)
 
         for ptn in runs.keys():
             if(len(runs[ptn]) == 1):
@@ -875,10 +877,7 @@ def runDefault(params,p0,prange,paramType,instSet,alg,gpsID,R,logger):
 
     #Copy the results into all of the other parameters.
     for p in params[1:]:
-        if(paramType[p] in ['integer','real']):
-            ptns = ['a','b','c','d']
-        else
-            ptns = prange[p]
+        pts,ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
         redisHelper.addRun(gpsID,p,p0[p],ptns,inst,seed,runStatus,PAR10,{'params':pbestOld},adaptiveCap,redisHelper.getRunID(gpsID,R),logger,R)
         redisHelper.saveIncumbent(gpsID,p,p0[p],1,PAR10,R)
 
@@ -1003,7 +1002,7 @@ def enqueueUnlessQueued(p,pt,ptn,i,instSet,alg,runs,aliveSet,gpsID,R,logger):
     
     for j in range(0,min(i+1,len(instSet))):
         (inst,seed) = instSet[j]
-        alive = redisHelper.stillInAliveSet(gpsID,p,pt,ptn,inst,seed,aliveSet,R)
+        alive = redisHelper.stillInAliveSet(gpsID,p,pt,inst,seed,aliveSet,R)
 
         if(not alive):
             #stillAlive checks if the task is in the queue, is currently running, or if it has already been completed and the results have been saved. 
@@ -1032,11 +1031,17 @@ def notDone(runs,ptn,inst,seed):
     return (inst,seed) not in runs[ptn].keys()
     
 
-def updateRunResults(gpsID,p,pt,inst,seed,res,runtime,timeSpent,alg,adaptiveCap,oldRunID,logger,R):
+def updateRunResults(gpsID,p,pt,inst,seed,res,runtime,timeSpent,alg,adaptiveCap,oldRunID,prange,paramType,logger,R):
     #Author: YP
     #Created: 2018-07-08
+    #Last Updated: 2019-03-06
 
-    return redisHelper.addRun(gpsID,p,pt,inst,seed,res,runtime,alg,adaptiveCap,oldRunID,logger,R)
+    if(paramType[p] in ['real','integer']):
+        ptns = ['a','b','c','d']
+    else:
+        ptns = prange[p] 
+
+    return redisHelper.addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,alg,adaptiveCap,oldRunID,logger,R)
 
 
 def updateBudget(gpsID,timeSpent,R):
@@ -1046,7 +1051,7 @@ def updateBudget(gpsID,timeSpent,R):
     redisHelper.updateBudget(gpsID,budget,R)
 
 
-def gpsSlave(integer,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,gpsSlaveID,gpsID,sleepTime=0,dbhost='ada-udc.cs.ubc.ca',dbport=9503,dbid=0,verbose=1,logLocation=''):
+def gpsSlave(paramType,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,gpsSlaveID,gpsID,sleepTime=0,dbhost='ada-udc.cs.ubc.ca',dbport=9503,dbid=0,verbose=1,logLocation=''):
     #Author: YP
     #Created: 2018-07-06
     #The main function call to initiate a worker slave for GPS.
@@ -1101,7 +1106,7 @@ def gpsSlave(integer,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,gps
                 #so that we save time by adjusting our cap, and then when we
                 #are done we multiply the penalty factor back in to reflect
                 #the penalized running time. 
-                res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['pt'],task['inst'],task['seed'],integer[task['p']],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,logger)
+                res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['pt'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,logger)
                 runtime = runtime*regFactor
                 cutoffi = cutoffi*regFactor
 
@@ -1120,7 +1125,7 @@ def gpsSlave(integer,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,gps
             if(not (capType == 'Budget Cap' and res == 'TIMEOUT')):
                 #Store the results back in the database
                 logger.debug("Storing the results back in the database.")
-                curRunID = updateRunResults(gpsID,task['p'],task['pt'],task['inst'],task['seed'],res,runtime,timeSpent,task['alg'],cutoffi,oldRunID,logger,R)
+                curRunID = updateRunResults(gpsID,task['p'],task['pt'],task['inst'],task['seed'],res,runtime,timeSpent,task['alg'],cutoffi,oldRunID,prange,paramType,logger,R)#JUMP0
             else:
                 logger.debug("This run caused us to exceed the budget, so we will discard the results.")
 
@@ -1172,10 +1177,10 @@ def gpsSlave(integer,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,gps
 
 
 
-def performRun(p,pt,inst,seed,integer,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,logger):
+def performRun(p,pt,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,logger):
     #Author: YP
     #Created: 2018-04-10
-    #Last updated: 2018-07-06
+    #Last updated: 2019-03-06
     #This function has been substantially modifed and renamed since it's creation, where it originally
     #was used to perform a batch of runs, it is now used to perform only a single run.
 
