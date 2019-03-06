@@ -733,7 +733,7 @@ def showBracket(gpsID,p):
      while True:
         
          try:
-             runs = getRuns(gpsID,p,R)
+             runs = getRuns(gpsID,p,R) #TODO does not conform to cat format.
              pts,ptns,alg = getBracket(gpsID,p,R)
              incVal,numRuns,incStat = getIncumbent(gpsID,p,R) 
          except:
