@@ -4,6 +4,7 @@
 
 import helper
 import pcsParser
+import pcsHelper
 
 import math
 import copy as cp
@@ -148,7 +149,7 @@ def gps(alg,params,p0,prange,paramType,insts,cutoff,minInstances=10,wallBudget=f
 
     #alg contains a bunch of information for example, it contains the current
     #incumbent in the same format as p0 (see below), and it contains the wrapper
-    #        params = {'params':p0, 'wrapper':'wrapper call string'}
+    #        alg = {'params':p0, 'wrapper':'wrapper call string'}
     #params is just a list of parameter names
     #        params = ['decayRate']
     #p0 is a dict with key as the parameter name and value as the default 
@@ -1051,9 +1052,10 @@ def updateBudget(gpsID,timeSpent,R):
     redisHelper.updateBudget(gpsID,budget,R)
 
 
-def gpsSlave(paramType,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,gpsSlaveID,gpsID,sleepTime=0,dbhost='ada-udc.cs.ubc.ca',dbport=9503,dbid=0,verbose=1,logLocation=''):
+def gpsSlave(pcsFile,cutoff,decayRate,alpha,boundMult,minInstances,gpsSlaveID,gpsID,sleepTime=0,dbhost='ada-udc.cs.ubc.ca',dbport=9503,dbid=0,verbose=1,logLocation=''):
     #Author: YP
     #Created: 2018-07-06
+    #Last updated: 2019-03-07
     #The main function call to initiate a worker slave for GPS.
     #Slaves continually query the database for new tasks to run,
     #i.e., target algorithm runs, and then report the results back
@@ -1062,6 +1064,8 @@ def gpsSlave(paramType,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,g
     #database, queried and updated by the slaves) is exhausted.
 
     lastCPUTime = time.clock()
+
+    paramType,p0,prange,pcs = loadPCS(pcsFile) #TODO: Implement
 
     R = redisHelper.connect(dbhost,dbport,dbid)
     runTrace = []
@@ -1091,6 +1095,14 @@ def gpsSlave(paramType,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,g
             logger.debug("Found a new task:" + str(task))
             logger.debug("*"*50)
 
+            logger.debug("Calculating the configuration we need to evaluate")
+
+            params = cp.deepcopy(task['alg']['params'])
+            params[task['p']] = task['pt']
+            #NOTE: We're going to assume that there are no grandchild dependencies. 
+            params = pcsHelper.handleInactive(pcs,params,task['p'])
+            task['alg']['params'] = params
+
             logger.debug("Calculating the regularization penalty")
             regFactor = getRegPenalty(task['p'],task['pt'],p0,prange,lmbda=2)
             logger.debug("The penalty is: " + str(regFactor))
@@ -1106,7 +1118,7 @@ def gpsSlave(paramType,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,g
                 #so that we save time by adjusting our cap, and then when we
                 #are done we multiply the penalty factor back in to reflect
                 #the penalized running time. 
-                res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['pt'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,logger)
+                res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,pcs,budget,gpsSlaveID,oldRunID,logger)
                 runtime = runtime*regFactor
                 cutoffi = cutoffi*regFactor
 
@@ -1177,17 +1189,17 @@ def gpsSlave(paramType,p0,prange,cutoff,decayRate,alpha,boundMult,minInstances,g
 
 
 
-def performRun(p,pt,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,logger):
+
+def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,logger):
     #Author: YP
     #Created: 2018-04-10
     #Last updated: 2019-03-06
     #This function has been substantially modifed and renamed since it's creation, where it originally
     #was used to perform a batch of runs, it is now used to perform only a single run.
 
-    cpuTime = 0
+    params = alg['params']
 
-    params = cp.deepcopy(alg['params'])
-    params[p] = pt
+    cpuTime = 0
 
     capType = 'Regular Cap'
 

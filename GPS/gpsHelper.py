@@ -383,6 +383,7 @@ def calPerfDirect(times,changes,decayRate):
 def calChanges(curP,alg0,alg1,prange):
     #Author: YP
     #Created: 2018-09-21
+    #Last updated: 2019-03-06
     #Calcualtes the cumulative changes between the two configurations in alg0 and alg1
 
     #Take the union of the parameters for the two algorithms
@@ -398,9 +399,11 @@ def calChanges(curP,alg0,alg1,prange):
         elif(p in alg0.keys() and p in alg1.keys()):
             changes.append(calChange(alg0[p],alg1[p],prange[p]))
         else:
-            #One of these parameters doesn't even exist in the other configuration, so we
-            #count it as being a full change.
-            changes.append(1) #TODO: Review this decision when you actually handle categorical parameters
+            #One of these parameters doesn't exist in the other configuration, so we
+            #count it as being no change, because this can only happen when they share
+            #a parent parameter whose value is different, therefore we alre already 
+            #counting the change between the configurations via this difference.
+            changes.append(0)
 
     #Take the Euclidean distance between the two configurations.
     return sum(np.array(changes)**2)**0.5
