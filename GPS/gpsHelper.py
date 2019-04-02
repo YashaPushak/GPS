@@ -98,15 +98,15 @@ def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,boundMult,
     #unlike the old one that was purely incumbent-driven, this one will
     #calculate a pairwise cap based on each other point. Furthermore, 
     #this method is more principled, because it only uses the intersection
-    #of instances for which both points have completed target algorihtm runs.
+    #of instances for which both points have completed target algorithm runs.
     #This way, we're not making poor heuristic cap decisions based on some
-    #points with ompleted runs and others without, and we're not running risk
+    #points with completed runs and others without, and we're not running risk
     #of assigning small caps to instances for which there are no completed
     #runs simply because those instances are harder than most of the others.
 
     smallestCap = cutoff
 
-    for ptnO in ['a','b','c','d']:
+    for ptnO in ['a','b','c','d']: #TODO: This still needs fixing
         if(ptnO == ptn):
             #We shouldn't calculate a cap for a point based on its own 
             #performance
@@ -148,7 +148,7 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,bo
     runsC = {}
 
     #Get the intersection of runs they have both performed,
-    #insce anything else would be unfair to use as a comparison
+    #since anything else would be unfair to use as a comparison
     insts = intersection(runs[ptnO].keys(),runs[ptnC].keys())
 
     #In case we are re-running this instance, we don't want to

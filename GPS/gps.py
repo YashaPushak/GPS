@@ -37,6 +37,39 @@ loopLimit = 10000
 #TODO: The above TODO statements are quite old... I suspect they have been resolved already, but they are still there, so I guess it will be best to check this before running any major experiments.
            
 
+def loadPCS(pcsFile):
+    #Author: YP
+    #Created: 2019-04-02
+    #Reads the pcs file using the parser, and then extracts some information
+    #into the format used by GPS.
+
+    pcs = pcsParser.PCS(pcsFile)
+
+    paramType = {}
+    p0 = {}
+    prange = {}
+    params = []
+  
+    for param in pcs.paramList:
+        p = pcs.getAttr(param,'name')
+        params.append(p)
+        paramType[p] = pcs.getAttr(param,'type')
+ 
+        p0[p] = pcs.getAttr(param,default)
+        prange[p] = pcs.getAttr(param,default)
+
+        if(not pcs.isNumeric(param)):
+            p0[p] = pcs.getAttr(p0[p],'text')
+            l = []
+            for v in prange[p]
+                l.append(pcs.getAttr(v,'text'))
+            prange[p] = l
+
+    return params,paramType,p0,prange,pcs
+  
+        
+
+
 def parseScenario(scenarioFile):
     #Author: YP
     #created: 2018-04-13
@@ -168,7 +201,7 @@ def logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget
 
 
         #alg,params[pInd]['name'],params[pInd]['default'],params[pInd]['pmin'],params[pInd]['pmax'],params[pInd]['integer'],insts,cutoff,minInstances,rId,wallBudget/n,cpuBudget/n,runBudget/n,iterBudget/n,numRuns,alpha,tol,decayRate,boundMult,s,comDir,verbose
-def gps(paramFile,wrapper,insts,cutoff,minInstances=10,wallBudget=float('inf'),cpuBudget=float('inf'),runBudget=float('inf'),iterBudget=float('inf'),alpha=0.05,decayRate=0.05,boundMult=2,s=-1,instIncr=1,host='ada-udc.cs.ubc.ca',port=9503,dbid=0,gpsID=0,verbose=1,logLocation=''):
+def gps(pcsFile,wrapper,insts,cutoff,minInstances=10,wallBudget=float('inf'),cpuBudget=float('inf'),runBudget=float('inf'),iterBudget=float('inf'),alpha=0.05,decayRate=0.05,boundMult=2,s=-1,instIncr=1,host='ada-udc.cs.ubc.ca',port=9503,dbid=0,gpsID=0,verbose=1,logLocation=''):
     #Author: YP
     #Created: 2018-04-10
     #Last modified: 209-03-05
@@ -234,7 +267,7 @@ def gps(paramFile,wrapper,insts,cutoff,minInstances=10,wallBudget=float('inf'),c
         redisHelper.initializeBudget(gpsID,budget,R)
  
         #Parse the parameter configuration space.
-        pcs,params,p0,prange,paramType = parseParameters(paramFile) 
+        params,paramType,p0,prange,pcs = loadPCS(pcsFile)  
 
         alg = {}
         alg['wrapper'] = wrapper
@@ -321,21 +354,16 @@ def gps(paramFile,wrapper,insts,cutoff,minInstances=10,wallBudget=float('inf'),c
             si[p] += minInstances
             i[p] %= len(insts)
  
+        #Queue the default value for each parameter.
+        runDefault(pcs,params,p0,prange,paramType,instSet,gpsID,R,logger)
 
-        #TODO: Figure out how to handle child parameters who search space do not 
-        #contain the default configuration at all.  
-        success = runDefault(params,p0,prange,paramType,instSet,alg,gpsID,R,logger)
-
-        if(not success):
-            #Signal the slaves to stop working.
-            redisHelper.setRunID(gpsID,-1,R)
-            #TODO: I should probably actually raise an error here.
-            return -1, -1, -1, -1, -1, -1, -1
-    
-
-        #Initially, all of the incumbents have only been run on the first instance
+        #Initially, all of the incumbents have only been run on the first instance    
+        #(not that this has necessarily finished yet, but we require the new incumbents 
+        #to be runs on a non-strict super-set, so it is okay to pretend like it has been 
+        #finished).
         prevIncInsts = newParamDict(params,[(insts[0],firstSeed)])
 
+        finishedDefault = newParamDict(params,False)
     
         lastCPUTime = updateCPUTime(gpsID,lastCPUTime,R)
   
@@ -356,8 +384,14 @@ def gps(paramFile,wrapper,insts,cutoff,minInstances=10,wallBudget=float('inf'),c
         while not done:
             verbose = redisHelper.getVerbosity(gpsID,R)
             logger = getLogger(logLocation,verbose)
+            #Randomize the order in which we visit each parameter. 
+            random.shuffle(params)
             for p in params:
                 pts, ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
+
+                finishedDefault = isDoneDefault(p,finishedDefault,gpsID,ptns,R,logger)
+                if(not finishedDefault[p]):
+                    continue
 
                 #logger.debug("Checking on parameter " + p)
                 #Poll the current stat of the queue
@@ -844,60 +878,65 @@ def removesIncumbent(op,direction,inc):
     return False
 
 
-def runDefault(params,p0,prange,paramType,instSet,alg,gpsID,R,logger):
-    #Author: YP 
-    #Created: 2018-07-12
-    #Last Updated: 2019-03-05
-    #Queues the default configuration and waits until it is 
-    #done running. Then copies the run information from it
-    #into all other parameters, since they all share the same
-    #default configuration.
-    #We can use this to pick the first adaptive cap so that we
-    #don't immediately launch a large number of tasks with huge
-    #running time cutoffs causing us to wait much longer than
-    #necessary. We can also use this to our advantage by stopping
-    #GPS if the default configuration crashes.
+def isDoneDefault(p,finishedDefault,gpsID,ptns,R,logger):
+    #Author: YP
+    #Created: 2019-04-02
+    #Checks to see if the default value has finished running the first instance.
+    #NOTE: This does not actually check if the DEFAULT value is done the FIRST instance,
+    #It actually just checks to see if any value is done running at least one instance
+    #This could make it hard to debug if runs are somehow being prematurely logged as done or
+    #prematurely started. However, it should be the case that no runs are queued until the 
+    #default value for a parameter is run on the first instance, so this should always 
+    #correctly return true. We also maintain the parameter dict finishedDefault so that we
+    #can memorize the answer so that we aren't constantly requesting the latest runs from the
+    #redis server after the answer is yes (since it will forever after remain yes).
 
-    p = params[0]
-    pts,ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
+    if(finishedDefault(p)):
+        return finishedDefault
 
-
-    (inst,seed) = instSet[p][0]
-
-    logger.info("Queuing the default configuration.")
-
-    redisHelper.enqueue(gpsID,p,p0[p],inst,seed,R)
-
-    logger.info("Waiting until it is done running...")
+    runs = redisHelper.getRuns(gpsID,p,ptns,R)
 
     done = False
-    loopCount = 0
-    while not done:
-        time.sleep(0.1)
-        loopCount += 1
-        if(loopCount >= loopLimit):
-            logger.debug("INFINITE LOOP in runDefault()?")
-        runs = redisHelper.getRuns(gpsID,p,ptns,R)
+    for ptn in runs.keys():
+        done = len(runs[ptn]) >= 1)
 
-        for ptn in runs.keys():
-            if(len(runs[ptn]) == 1):
-                [PAR10, pbestOld, runStatus, adaptiveCap] = runs[ptn][(inst,seed)]
-                done = True
+    finishedDefault(p) = done
 
-    logger.info("The default configuration has a PAR10 of " + str(PAR10) + " CPU Seconds.")
+    return finishedDefault
 
 
-    if(not runStatus == 'SUCCESS'):
-        logger.info("The status of running the default configuration on "  + str((inst,seed)) + " was: " + str(runStatus) + ". We are aborting the GPS run as a result.")
-        return False
 
-    #Copy the results into all of the other parameters.
-    for p in params[1:]:
+def runDefault(params,p0,prange,paramType,instSet,gpsID,R,logger):
+    #Author: YP 
+    #Created: 2018-07-12
+    #Last Updated: 2019-04-02
+    #Queues the default value for each parameter. Note that we could
+    #Save a lot of (parallelized) time by running the default configuration
+    #only once instead of once for each parameter. However, because some children
+    #parameters may not be included in the default configuration we instead are
+    #taking the simple approach to run a single "default" configuration for every
+    #parameter, where the parent's of children are set such that they are turned
+    #on. Many of these configurations will still (typically) be the same, and we 
+    #could conceivably save some time here by only running these once. However,
+    #when using a large number of processors or a small number of parameters, the
+    #savings such a method would make would be neglibible, whereas the complexity
+    #in the implementation (and hence the room for bugs) increases quite a bit, so
+    #we are instead opting in favour of simplicity. An optimization of this nature
+    #could easily be added in the future if GPS proves highly competitive with 
+    #other configurators. 
+    
+    #The resulting runs can then be used to pick the first adaptive caps for each
+    #parameter so that we don't immediately launch a large number of tasks with 
+    #huge running time cutoffs causing us to wait much longer than necessary.
+
+    for p in params:
         pts,ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
-        redisHelper.addRun(gpsID,p,p0[p],ptns,inst,seed,runStatus,PAR10,{'params':pbestOld},adaptiveCap,redisHelper.getRunID(gpsID,R),logger,R)
-        redisHelper.saveIncumbent(gpsID,p,p0[p],1,PAR10,R)
 
-    return True
+        (inst,seed) = instSet[p][0]
+
+        logger.info("Queuing the default value for " + str(p) + "...")
+
+        redisHelper.enqueue(gpsID,p,p0[p],inst,seed,R)
     
 
 
@@ -941,7 +980,7 @@ def queueRuns(runs,pts,ptns,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alph
                 #Double i and see if we have completed the next set of runs
                 i = (i+1)*2-1
             else:
-                #By induction, we know we compketed (i+1)/2*instIncr instances,
+                #By induction, we know we completed (i+1)/2*instIncr instances,
                 #but not (i+1)*instIncr instances, so we have found the largest
                 #multiple of 2 times instIncr with completed runs. This means we
                 #can try to queue up to (i+1)*instIncr instances.
@@ -1067,6 +1106,7 @@ def updateBudget(gpsID,timeSpent,R):
     redisHelper.updateBudget(gpsID,budget,R)
 
 
+
 def gpsSlave(pcsFile,cutoff,decayRate,alpha,boundMult,minInstances,gpsSlaveID,gpsID,sleepTime=0,dbhost='ada-udc.cs.ubc.ca',dbport=9503,dbid=0,verbose=1,logLocation=''):
     #Author: YP
     #Created: 2018-07-06
@@ -1080,7 +1120,7 @@ def gpsSlave(pcsFile,cutoff,decayRate,alpha,boundMult,minInstances,gpsSlaveID,gp
 
     lastCPUTime = time.clock()
 
-    paramType,p0,prange,pcs = loadPCS(pcsFile) #TODO: Implement
+    params,paramType,p0,prange,pcs = loadPCS(pcsFile)
 
     R = redisHelper.connect(dbhost,dbport,dbid)
     runTrace = []
