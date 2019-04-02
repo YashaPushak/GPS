@@ -207,131 +207,275 @@ def calNumRunsEqvs(p,runs,pbest,prange,decayRate):
 def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,logger):
     #Author: YP
     #Created: 2018-05-03
-    #Last updated: 2019-03-06
-    #Conforms to cat format.
-    logger.debug("Updating the Incumbent")
+    #Last updated: 2019-03-14
+    #There are several rounds of filters or "tie breakers" that will be used to determine the incumbent:
+    #Filter Round 1:
+        #Admit every challenger with >= minInstance runs
+        #If no challengers remain, return the previous incumbent
+    #Filter Round 2:
+        #Admit every challenger with a (non-strict) superset of the prevInc runs
+        #If no challengers remain, return the previous incumbent
+    #Filter Round 3:
+        #Admit every challenger with statistically sufficient evidence of improved performance compared to the previous incumbent
+        #If no challengers remain, return the previous incumbent
+        #If only one challenger remains, it is the new incumbent
+    #Filter Round 4:
+        #Admit every challenger that is not statistically worse than any of the other challengers
+        #If every challenger is eliminated (e.g., a triangle where a < b < c < a), then skip this filter.
+        #If only one challenger remains, it is the new incumbent
+    #Filter Round 5:
+        #Admit every challenger with performance equal to the best performance among the challengers
+        #If only one challenger remains, it is the new incumbent
+    #Filter Round 6:
+        #Admit every challenger that has been run on the largest number of run equivalents among the challengers
+        #If only one challenger remains, it is the new incumbent
+    #Filter Round 7:
+        #Randomly pick one challenger
+        #Return the remaining challenger as the incumbent.
 
+
+    logger.debug("Checking to see if we can update the incumbent...")
 
     f = {}
-    numRunsEqvs = {}
+    numRunEqvs = {}
     for ptn in ptns:
+        #For each candidate, calculate the performance and the number of run equivalents.
         f[ptn] = calPerf(p,runs[ptn],pbest,prange,decayRate)
-        numRunsEqvs[ptn] = calNumRunsEqvs(p,runs[ptn],pbest,prange,decayRate)
+        numRunEqvs[ptn] = calNumRunsEqvs(p,runs[ptn],pbest,prange,decayRate)
 
-    #Sort the points by performance
-    order = sorted(f.keys(),key=lambda k:f[k])
 
-    #Take the configuration with the best running time that
-    #has at most one less runs performed than the configuration
-    #with the most runs. (This is to ensure that a newly added
-    #configuration that has very few new runs isn't falsely chosen
-    #as being the best.)
-    i = 0
-    #This is used as a backup method for choosing the incumbent. See the 
-    #comments and code at the end of the loop for an explaination.
-    candsRnd3 = []
-    loopCount = 0
-    while True:
-        loopCount += 1
-        if(loopCount >= loopLimit):
-            logger.debug("INFINITE LOOP in updateIncumbent?")
-        #Update the best-known value
-        for j in range(0,len(ptns)):
-            if(order[i] == ptns[j]):
-                inc = pts[j]
+    #We will use several tie breakers to pick the incumbent. Initially we do know who what value is the winner.
+    foundInc = False
+
+    prevIncPt = pbest[p]
+    foundMatch = False
+    for i in range(0,len(pts)):
+        if(prevIncPt == pts[i]):
+            prevIncPtn = ptns[i]
+            foundMatch = True
+            break
+    if(not foundMatch and type(prevIncPt) in [float, np.float64]):
+        #This can happen due to floating point errors
+        #When it does, we just assume that the most similar parameter is the same one.
+        logger.debug("We were unable to find a direct match for the incumbent " + str(prevIncPt) + " of parameter " + str(p) + " in the pts " + str(pts)) 
+        d = [abs(pts[i] - prevIncPt) for i in range(0,len(pts))]
+        for i in range(0,len(pts)):
+            if(d[i] == min(d)):
+                prevIncPtn = ptns[i]
+                foundMatch = True
+                if(d[i] > 1e-6):
+                    logger.warning("We were unable to find a parameter value in the current bracket that matched the previous incumbent's value. We are assuming that this becuase of a floating point error; however, the difference that we had to accept to get a match was " + str(d[i]) + ", which is greater than our tolerance of " + str(1e-6))
+                else:
+                    logger.debug("We were unable to find a parameter value in the current bracket that exactly matched the previous incumbent's value. We are assuming that this is because of a floating point error and accepting a match with a difference of " + str(d[i]))
                 break
-          
-        #Make sure that the new incumbent has been run on a superset of the
-        #instances on which the previous incumbent was run. and that at least
-        #minInstances run equivalents have been performed.
-        superSet = True
-        for (inst,seed) in prevIncInsts:
-            if( (inst,seed) not in runs[order[i]].keys()):
-                superSet = False
-                break
-        if(superSet and numRunsEqvs[order[i]] >= minInstances):
-            #We have found the incumbent, we can stop.
-            break    
+    if(not foundMatch):
+        logger.debug("This should not have happened. We were unable to find a match for the previous incumbent value.")
+        logger.debug("Parameter: " + str(p))
+        logger.debug("prevIncPt: " + str(prevIncPt))
+        logger.debug("pts: " + str(pts))
+        logger.debug("type(prevIncPt): " + str(type(prevIncPt)))
+            
 
-        #Alternate stopping condition for choosing the incumbent
-        if(order[i] in candsRnd3):
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 1:
+        #Admit every challenger with >= minInstance runs
+    logger.debug("Filter Round 1: Admit every challenger with >= minInstance runs")
+    logger.debug("Starting off with challengers: " + str(ptns))
+
+    curCands = []
+    for ptn in ptns:
+        if(numRunEqvs[ptn] >= minInstances):
+            curCands.append(ptn)
+    
+    #Check to see if we are done.
+    if(len(curCands) == 0):
+        #None of the points have at least minInstances run equivalents.
+        #So we return the previous incumbent.
+        incPtn = prevIncPtn
+        foundInc = True
+        logger.debug("None of the challengers survived, so we are returning the previous incumbent.") 
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 2:
+        #Admit every challenger with a (non-strict) superset of the prevInc runs
+
+    if(not foundInc):
+        logger.debug("Filter Round 2: Admit every challenger with a (non-strict) superset of the prevInc runs")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        for cand in prevCands:
+            superSet = True
+            for (inst,seed) in prevIncInsts:
+                if((inst,seed) not in runs[cand].keys()):
+                    superSet = False
+                    break
+            if(superSet):
+                curCands.append(cand)
+
+        #Check to see if we are done.
+        if(len(curCands) == 0 or (len(curCands) == 1 and curCands[0] == prevIncPtn)):
+            #None of the points have been run on a superset of the previous incumbent runs
+            #So we return the previous incumbent.
+            incPtn = prevIncPtn
+            foundInc = True
+            logger.debug("None of the challengers survived, so we are returning the previous incumbent.") 
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 3:
+        #Admit every challenger with statistically sufficient evidence of improved performance compared to the previous incumbent
+
+    if(not foundInc):
+        logger.debug("Filter Round 3: Admit every challenger with statistically sufficient evidence of improved performance compared to the previous incumbent")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        comp = permTestSep(p,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger)
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        for cand in prevCands:
+            if(comp[(cand,prevIncPtn)] < 0): #Small is good
+                curCands.append(cand)
+
+        #Check to see if we are done.
+        if(len(curCands) == 0):
+            #None of the points are statistically better than the previous incumbent
+            #So we return the previous incumbent
+            incPtn = prevIncPtn
+            foundInc = True
+            logger.debug("None of the challengers survived, so we are returning the previous incumbent.")  
+        elif(len(curCands) == 1):
+            #We have found the new incumbent
+            incPtn = curCands[0]
+            foundInc = True
+
+        logger.debug("Results from this round: " + str(curCands))
+        #logger.warning("Reseting to old candidates")
+        #foundInc = False
+        #curCands = prevCands
+       
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 4:
+        #Admit every challenger that is not statistically worse than any of the other challengers
+        #If every challenger is eliminated (e.g., a triangle where a < b < c < a), then skip this filter.
+
+    if(not foundInc):
+        logger.debug("Filter Round 4: Admit every challenger that is not statistically worse than any of the other challengers")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        for cand1 in prevCands: 
+            best = True
+            for cand2 in prevCands:
+                if(comp[(cand1,cand2)] > 0): #Small is good
+                    best = False
+            if(best):
+                curCands.append(cand1)
+
+        #Check to see if we are done.
+        if(len(curCands) == 0):
+            #There is a cyclic performance comparision. This might happen if each point has been run on different sets of instances.
+            #Therefor will not eliminate any of the points. 
+            curCands = prevCands
+            logger.debug("Every challenger was eliminated (e.g., because of a triangle where a < b < c < a), so we are skipping this filter.")
+        elif(len(curCands) == 1):
+            #We have found the incumbent
+            incPtn = curCands[0]
+            foundInc = True
+
+        logger.debug("Results from this round: " + str(curCands))
+        #logger.warning("Reseting to old candidates")
+        #foundInc = False
+        #curCands = prevCands
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 5:
+        #Admit every challenger with performance equal to the best performance among the challengers
+
+    if(not foundInc):
+        logger.debug("Filter Round 5: Admit every challenger with performance equal to the best performance among the challengers")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        #Find the best performance value
+        best = float('inf')
+        for cand in prevCands:
+            best = min(best,f[cand])
+        for cand in prevCands:
+            if(f[cand] == best):
+                curCands.append(cand)
+
+        #Check to see if we are done.
+        if(len(curCands) == 1):
+            #We have found the incumbent
+            incPtn = curCands[0]
+            foundInc = True
+
+        logger.debug("Results from this round: " + str(curCands))
+        #logger.warning("Reseting to old candidates")
+        #foundInc = False
+        #curCands = prevCands
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 6:
+        #Admit every challenger that has been run on the largest number of run equivalents among the challengers
+
+    if(not foundInc):
+        logger.debug("Filter Round 6: Admit every challenger that has been run on the largest number of run equivalents among the challengers")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        #Find the one with the most run equivalents
+        best = 0
+        for cand in prevCands:
+            best = max(best,numRunEqvs[cand])
+        for cand in prevCands:
+            if(numRunEqvs[cand] == best):
+                curCands.append(cand)
+
+        #Check to see if we are done.
+        if(len(curCands) == 1):
+            #We have found the incumbent
+            incPtn = curCands[0]
+            foundInc = True
+
+        logger.debug("Results from this round: " + str(curCands))
+        #logger.warning("Reseting to old candidates")
+        #foundInc = False
+        #curCands = prevCands
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 7:
+        #Randomly pick one challenger
+
+    if(not foundInc):
+        logger.debug("Filter Round 7: Randomly pick one challenger")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        incPtn = random.choice(curCands)
+        foundInc = True
+
+    #--------------------------------------------------------------------------------------------
+    #Return the remaining challenger as the incumbent.
+
+    for i in range(0,len(ptns)):
+        if(incPtn == ptns[i]):
+            incPt = pts[i]
             break
 
-        i += 1
-        if(i >= 4):
-            logger.debug("None of the current points have been run on a superset of the instances on which the last incumbent was run.")
-            logger.debug("This can happen in rare cases where the bracket update causes the incumbent to be discarded.")
-            logger.debug("This means we must use a special procedure to choose a new incumbent.")
-            logger.debug("We start by performing a permutation test to identify the relative ordering of all of the candidates.")
-            #None of the current points have been run on as many instances as
-            #the previous incumbent. This can happen when the incumbent is
-            #removed from the bracket (which can occur if the bracket appears
-            #to be non-uni-modal).
-            comp = permTestSep(p,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger)
-            #We pick the new incumbent to be any of the statistically best
-            #performance (according to the permutation test), that have been
-            #run on at least minInstances instances.
-            logger.debug(str(comp))
-            logger.debug("We only let a candidate proceed to the next round if it has been run on at least " + str(minInstances) + " equivalent instances.")
-            candidates = ptns
-            candsRnd1 = []
-            for cand in candidates:
-                if(numRunsEqvs[cand] >= minInstances):
-                    candsRnd1.append(cand)
-            if(len(candsRnd1) == 0):
-                #Nothing has finished running minInstances runs. So we 
-                #will just have to accept all of them
-                logger.debug("Every candidate was just eliminated, so we will accept all of them.")
-                candsRnd1 = candidates
-            logger.debug("The remaining candidates are: " + str(candsRnd1))
-            logger.debug("We only let a candidate proceed to the next round if it is not dominated by any other candidates.")
-            #Next check to find which of the remaining candidates are
-            #statistically best.
-            candsRnd2 = []
-            for cand1 in candsRnd1: 
-                best = True
-                for cand2 in candsRnd1:
-                    if(comp[(cand1,cand2)] > 0):
-                        best = False
-                if(best):
-                    candsRnd2.append(cand1)
-            logger.debug("The remaining candidates are " + str(candsRnd2))
-            logger.debug("Finally, we only want to take the candidates that have been run on the most instances.")
-            #Anything that survived candsRnd2 is allowed to be the incumbent
-            #Next, we take only the candidates which have solved the largest
-            #number of instances that are statistically equal to each other.
-            #We do this to avoid a bias towards selecting candidates that have
-            #been run on only a small number of easy instances (which is likely
-            #to occur since easy instances will be completed first). This way
-            #we will pick the candidate that is statistically indistinguishable
-            #From the set of best candidates, and the one for which we have the
-            #most data about its performance, so that it is least likely to be
-            #falsely included in the set of best candidates.
-            candsRnd3 = []
-            maxRunsRnd3 = 0
-            for cand2 in candsRnd2:
-                if(maxRunsRnd3 < numRunsEqvs[cand2]):
-                    maxRunsRnd3 = numRunsEqvs[cand2]
-            for cand2 in candsRnd2:
-                if(numRunsEqvs[cand2] == maxRunsRnd3):
-                    candsRnd3.append(cand2)
-            logger.debug("The remaining candidates are " + str(candsRnd3))
-            logger.debug("Finally, if there are multiple remaining candidates, we take the one with the best performance.")
-            #If there are any remaining ties:.
-            #We will take the one that has the smallest running time. 
-            #Go back to the main search loop
-            i = 0
+    logger.debug("The winner is " + incPtn + " or " + str(incPt) + "!")
 
-    logger.debug("The winner is " + order[i] + " or " + str(inc))
+    incNumRuns = numRunEqvs[incPtn]
+    incTime = f[incPtn]
+
+    logger.debug("It is has been run on " + str(incNumRuns) + " run equivalents and has an estimated PAR10 of " + str(incTime))
+
+    if(incPt == prevIncPt):
+        #We did not update the incumbent. So we will not update the runs that need to have been performed by the next incumbent
+        incInsts = prevIncInsts
+    else:
+        incInsts = runs[incPtn].keys()
 
 
-    incNumRuns = numRunsEqvs[order[i]]
-    incTime = f[order[i]]
-    incInsts = runs[order[i]].keys()
+    return incPt, incPtn, incNumRuns, incTime, incInsts
 
-    logger.debug("It is has been run on " + str(incNumRuns) + " run equivalents, and has a PAR10 of " + str(incTime))
-
-    return inc, order[i], incNumRuns, incTime, incInsts
 
 
 
