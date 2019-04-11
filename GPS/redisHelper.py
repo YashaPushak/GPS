@@ -299,9 +299,9 @@ def updateBudget(gpsID,budgetIncrs,R):
                 continue
 
 
-def initializeBracket(gpsID,p,pts,ptns,alg,R):
+def initializeBracket(gpsID,p,pts,ptns,paramType,alg,R):
     #Author: YP
-    #Last updated: 2019-03-06
+    #Last updated: 2019-004-08
     #Updated to take in an array of parameter name (ptns) and values (pts)
 
 
@@ -309,14 +309,15 @@ def initializeBracket(gpsID,p,pts,ptns,alg,R):
     for i in range(0,len(ptns)):
         mapping[ptns[i]] = pts[i]
     mapping['alg'] = alg
+    mapping['paramType'] = paramType
 
     R.hmset('bracketState:' + str(gpsID) + ':' + p,mapping)
 
 
 
-def updateBracket(gpsID,p,pts,ptns,alg,R):
+def updateBracket(gpsID,p,pts,ptns,paramType,alg,logger,R):
     #Author: YP
-    #Last updated: 2019-03-06
+    #Last updated: 2019-04-08
     #Updated to conform to the new argument format.
     #Note that this function essentially performs two tasks:
     #One, it re-assigns the key-value mappings between pts and ptns
@@ -326,7 +327,10 @@ def updateBracket(gpsID,p,pts,ptns,alg,R):
     #This means there is no harm in allowing it to run for 
     #categorical parameters (since the key-value mappings never
     #change), other than wasting time. It can therefore still be
-    #used to update the parameter incumbnets stored in alg. 
+    #used to update the parameter incumbents stored in alg. 
+
+    logger.debug("pts = " + str(pts))
+    logger.debug("ptns = " + str(ptns))
 
    
     with R.pipeline() as pipe:
@@ -335,23 +339,25 @@ def updateBracket(gpsID,p,pts,ptns,alg,R):
                 pipe.watch('bracketState:' + str(gpsID) + ':' + p,*['runs:' + str(gpsID) + ':' + p + ':' + ptn for ptn in ptns])
 
                 #Grab the runs.
-                runs = getRunsNoPipe(gpsID,p,pipe)
+                runs = getRunsNoPipe(gpsID,p,pipe,ptns)
                 
                 #Get the old bracket meta-data
                 oldPts,oldPtns,oldAlg = getBracket(gpsID,p,pipe)
-                oldPts
+                logger.debug("oldPts = " + str(oldPts))
+                logger.debug("oldPtns = " + str(oldPtns))
+                logger.debug("runs = " + str(runs)) 
 
                 pipe.multi()
 
                 #change the bracket's meta-data
-                initializeBracket(gpsID,p,pts,ptns,alg,pipe)
+                initializeBracket(gpsID,p,pts,ptns,paramType,alg,pipe)
 
                 #Now the tricky part: updating the run information to match the new bracket points.
                 for i in range(0,len(ptns)):
                     oldPTN = ''
                     for oldI in range(0,len(ptns)):
                         if(pts[i] == oldPts[oldI]):
-                            oldPTN = ptns[oldI]
+                            oldPTN = oldPtns[oldI]
                             break
                     if(len(oldPTN) > 0):
                         #We have found a match, so we need to update the run information
@@ -373,15 +379,23 @@ def updateBracket(gpsID,p,pts,ptns,alg,R):
 
 def getBracket(gpsID,p,R):
     #Author: YP
-    #Last updated: 2019-03-06
+    #Last updated: 2019-04-08
     #Conforms to the new cat format. 
 
     mapping = R.hgetall('bracketState:' + str(gpsID) + ':' + p)
 
     ptns = sorted(mapping.keys())
+    ptns.remove('alg')
+    ptns.remove('paramType')
+    paramType = mapping['paramType']
     pts = []
     for ptn in ptns:
-        pts.append(eval(mapping[ptn]))
+        if(paramType == 'real'):
+            pts.append(float(mapping[ptn]))
+        elif(paramType == 'integer'):
+            pts.append(int(mapping[ptn]))
+        else:
+            pts.append(mapping[ptn])
 
     alg = eval(mapping['alg'])
 
@@ -430,10 +444,10 @@ def addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R)
                     logger.info("DISCARDING THIS RUN: " + str([p,pt,inst,seed,res,runtime,alg,adaptiveCap]))
                     pipe.delete('task:' + task)
                     break
-               for i in range(0,len(ptns)):
-                   if(pt == pts[i]):
-                       ptn = ptns[i]
-                       break
+                for i in range(0,len(ptns)):
+                    if(pt == pts[i]):
+                        ptn = ptns[i]
+                        break
 
                 pipe.hset('runs:' + str(gpsID) + ':' + p + ':' + ptn,(inst,seed),[runtime,alg['params'],res,adaptiveCap])
   
@@ -501,7 +515,7 @@ def getRuns(gpsID,p,ptns,R):
     return runs
 
 
-def getRunsNoPipe(gpsID,p,R,ptns=['a','b','c','d']):
+def getRunsNoPipe(gpsID,p,R,ptns):
     #Author: YP
     #Last updated: 2019-03-06
     #Conforms to cat format.   
@@ -546,7 +560,7 @@ def getIncumbent(gpsID,p,R):
 
 def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,logger):
     #Author: YP
-    #last updated: 2019-03-06
+    #last updated: 2019-04-05
     #Conforms to cat format.
 
 
@@ -580,13 +594,13 @@ def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,lo
 
                 #print(budget)
 
-                #Get the Runs
-                runs = getRunsNoPipe(gpsID,p,pipe)
-
-                #print(runs)
-
                 #Get the bracket information
                 pts,ptns,alg = getBracket(gpsID,p,pipe)
+
+                #Get the Runs
+                runs = getRunsNoPipe(gpsID,p,pipe,ptns)
+
+                #print(runs)
 
                 #print([a,b,c,d,alg]) 
 
@@ -595,6 +609,7 @@ def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,lo
                 if(pt not in pts): 
                     #The bracket has changed and we no longer need to evaluate
                     #this point. Continue and try the next point.
+                    logger.debug("Point " + str(pt) + " has been removed from the set of points considered: " + str(pts))
                     R.incr("RemovedCount")
                     continue
                 for i in range(0,len(ptns)):
@@ -603,7 +618,7 @@ def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,lo
 
                 #incVal,numRunsInc,incStat = getIncumbent(gpsID,p,pipe)
 
-                cutoffi = gpsHelper.getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,alg['params'],prange,decayRate,boundMult,logger) 
+                cutoffi = gpsHelper.getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,alg['params'],prange,decayRate,minInstances,boundMult,logger) 
 
                 #print(cutoffi)
 
@@ -757,7 +772,7 @@ def showBracket(gpsID,p):
                      insts.append(inst)
 
          sinds = range(0,len(ptns))
-         sinds = sorted(sinds,key = lambda i,pts[i])
+         sinds = sorted(sinds,key=lambda i:pts[i])
          pts = [pts[i] for i in sinds]
          ptns = [ptns[i] for i in sinds]
 

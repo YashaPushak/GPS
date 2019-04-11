@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import copy as cp
 
 import helper
 
@@ -91,9 +92,10 @@ def getAdaptiveCapOld(p,runs,ptn,cutoff,pbest,bestStat,numRunsInc,prange,decayRa
 
     return cutoffi
 
-def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,boundMult,logger):
+def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger):
     #Author: YP
     #Created: 2018-10-04
+    #Last updated: 2019-04-02
     #The new method for calculating the adaptive cap.
     #unlike the old one that was purely incumbent-driven, this one will
     #calculate a pairwise cap based on each other point. Furthermore, 
@@ -105,26 +107,29 @@ def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,boundMult,
     #runs simply because those instances are harder than most of the others.
 
     smallestCap = cutoff
+    logger.debug("p = " + str(p))
+    logger.debug("runs.keys() = " + str(runs.keys()))
 
-    for ptnO in ['a','b','c','d']: #TODO: This still needs fixing
+    for ptnO in runs.keys(): 
         if(ptnO == ptn):
             #We shouldn't calculate a cap for a point based on its own 
             #performance
             continue
-        cap = getPairwiseCap(p,runs,inst,seed,ptnO,ptn,cutoff,pbest,prange,decayRate,boundMult,logger)
-        print("Cap from " + ptnO + ": " + str(cap))
+        cap = getPairwiseCap(p,runs,inst,seed,ptnO,ptn,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger)
+        logger.debug("Cap from " + ptnO + ": " + str(cap))
         smallestCap = min(cap,smallestCap)
 
-    print("Overall cap: " + str(smallestCap))
+    logger.debug("Overall cap: " + str(smallestCap))
 
     return smallestCap
 
 
 
 
-def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,boundMult,logger):
+def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger):
     #Author: YP
     #Created: October 4th, 2018
+    #Last updated: 2019-04-05
     #Calculates the pairwise adaptive cap between two points
     #using only the intersection of instances for which they
     #both have completed runs. 
@@ -142,6 +147,7 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,bo
         #compared to all previous runs, then any cap we impose
         #here might be too low, and both points would end up
         #being prematurely censored with this cap.
+        logger.debug("The other point has not been run on this instance yet, so we cannot provide an adaptive cap.")
         return cutoff
 
     runsO = {}
@@ -166,12 +172,14 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,bo
     runsO[(instC,seedC)] = runs[ptnO][(instC,seedC)]
     #Calculate their performances and run equivalents.
     perfO = calPerf(p,runsO,pbest,prange,decayRate)
-    #runEqvsO = calNumRunsEqvs(p,runsO,pbest,prange,decayRate)
+    runEqvsO = calNumRunsEqvs(p,runsO,pbest,prange,decayRate)
     perfC = calPerf(p,runsC,pbest,prange,decayRate)
     runEqvsC = calNumRunsEqvs(p,runsC,pbest,prange,decayRate)
 
-    #print(perfO*runEqvsO)
-    #print(perfC*runEqvsC)
+    logger.debug("Original point performance: " + str(perfO))
+    logger.debug("Challenging point performance: " + str(perfC))
+    logger.debug("Challenging point run equivalents: " + str(runEqvsC))
+     
 
     if(runEqvsC == 0):
         budgetSpent = 0
@@ -182,7 +190,16 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,bo
     #the new instance has reached the same performance as
     #the old point multiplied by the boundMult. 
     budgetRemaining = perfO*(runEqvsC+1)*boundMult - budgetSpent
-    
+   
+    logger.debug("Remaining budget for this point: " + str(budgetRemaining))
+
+    if(runEqvsC + 1 < minInstances or runEqvsO < minInstances):
+        logger.debug("However, we do not have enough runs yet to trust this adaptive cap, so we will give it at least minInstances*cutoff - budgetSpent instead")
+
+        budgetRemaining = max(minInstances*cutoff-budgetSpent,budgetRemaining)
+
+        logger.debug("The remaining budget for this point is now: " + str(budgetRemaining))
+ 
     #We either return the budget the challening point has left,
     #or the original running time cutoff, whatever is smaller.
     #Also ensure that the cap is non-negative.
@@ -204,7 +221,7 @@ def calNumRunsEqvs(p,runs,pbest,prange,decayRate):
     return sum(decayRate**np.array(changes))
 
 
-def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,logger):
+def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger):
     #Author: YP
     #Created: 2018-05-03
     #Last updated: 2019-03-14
@@ -328,7 +345,8 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
     if(not foundInc):
         logger.debug("Filter Round 3: Admit every challenger with statistically sufficient evidence of improved performance compared to the previous incumbent")
         logger.debug("Starting off with challengers: " + str(curCands))
-        comp = permTestSep(p,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger)
+
+        comp = permTestSep(p,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger)
         prevCands = cp.deepcopy(curCands)
         curCands = []
         for cand in prevCands:
@@ -478,8 +496,6 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
 
 
 
-
-
 def calPerf(p,runs,pbest,prange,decayRate):
     #Author: YP
     #Created: 2018-07-05
@@ -490,7 +506,7 @@ def calPerf(p,runs,pbest,prange,decayRate):
     for (inst,seed) in runs.keys():
         [PAR10, pbestOld, runStatus, adaptiveCap] = runs[(inst,seed)]
 
-        if(adaptiveCap == 0):
+        if(runStatus == 'ADAPTIVE-CAP-TIMEOUT'):
             #One of the runs was censored by an adaptive cap, so we are now
             #treating this configuration as being equal to 10 times the
             #original PAR10
@@ -585,13 +601,15 @@ def getParamString(params):
 
 
 
-def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger):
+def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger):
     #Author: YP
     #Created: 2018-04-11
     #Last updated: 2018-05-03
     #Conforms to the cat format. 
     #Defines the relative ordering between the points by assessing
     #statistical significance with a permutation test.
+
+    logger.debug("~~~Starting permutation test for " + str(parameter) + "~~~")
 
 
     #Get the performance estimate for each point
@@ -615,6 +633,8 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
         for j in range(i,len(ptns)):
             perms.append((ptns[i],ptns[j]))
 
+    toBeCompared = []
+
     for p in perms:
         if(f[p[0]] < f[p[1]]):
             low = 0
@@ -624,14 +644,9 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
             hi = 0
 
         #logger.debug("*"*10 + ' ' + p[low] + ' <? ' + p[hi] + ' ' + '*'*60)
-        if(not enoughData(runs,pbest,prange,parameter,p[0],p[1],decayRate,minInstances)):            
-            #We don't have enough data collected to perform a permutation test yet,
-            #so we assume that they are the same.
-            comp[(p[0],p[1])] = 0
-            comp[(p[1],p[0])] = 0
-            #Next we check to see if either or both of p0 and p1 have been eliminated because they performed too much worse than the incumbent.
-            #We heuristicaly assume all such points are equally bad, and that they are all worse than any point not eliminated in this way.
-        elif(p[0] in eliminated and p[1] in eliminated):
+        #Next we check to see if either or both of p0 and p1 have been eliminated because they performed too much worse than the incumbent.
+        #We heuristicaly assume all such points are equally bad, and that they are all worse than any point not eliminated in this way.
+        if(p[0] in eliminated and p[1] in eliminated):
             comp[(p[0],p[1])] = 0
             comp[(p[1],p[0])] = 0
         elif(p[0] in eliminated):
@@ -643,7 +658,25 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
         elif(p[0] == p[1]):
             #everything is equal to itself
             comp[(p[0],p[1])] = 0
+        elif(not enoughData(runs,pbest,prange,parameter,p[0],p[1],decayRate,minInstances)):            
+            #We don't have enough data collected to perform a permutation test yet,
+            #so we assume that they are the same.
+            comp[(p[0],p[1])] = 0
+            comp[(p[1],p[0])] = 0
         else:
+            #Add this pair to a queue to be compared later. (We need to count the number of pairs being compared so that we can correctly do multiple test correction.
+            toBeCompared.append(p)
+
+    logger.debug("Only these pairs have enough data to be compared with the permutation test: " + str(toBeCompared))
+
+    if(len(toBeCompared) > 0):
+        if(multipleTestCorrection):
+            alphaBC = alpha/len(toBeCompared)
+            logger.debug("Using Bonferroni multiple test correction. Adjusting alpha from " + str(alpha) + " to " + str(alphaBC))
+        else:
+            alphaBC = alpha
+   
+        for p in toBeCompared:
             #Get the instance-seed pairs for which at least one of each point has ?a completed run.
             #We will use the union for the test.
             #insts = runs[p[low]].keys()
@@ -666,7 +699,7 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
                         Changes[ptl].append(float('inf')) #An infinite number of changes will cause the value to go to zero for any decay rate less than 1.
 
             #Perform the permutation test
-            if(permutationTest(Times[low],Times[hi],Changes[low],Changes[hi],alpha,1000,decayRate,minInstances,logger)):
+            if(permutationTest(Times[low],Times[hi],Changes[low],Changes[hi],alphaBC,1000,decayRate,minInstances,logger)):
                 #The difference is statistically significant
                 comp[(p[low],p[hi])] = -1
                 comp[(p[hi],p[low])] = 1
@@ -674,6 +707,9 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
                 #The difference is not statistically significant
                 comp[(p[low],p[hi])] = 0
                 comp[(p[hi],p[low])] = 0
+
+
+    logger.debug("~~~Ending permutation test for " + str(parameter) + "~~~")
 
     return comp
 
