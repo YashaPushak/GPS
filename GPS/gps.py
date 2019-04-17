@@ -125,7 +125,13 @@ def parseScenarioFile(scenarioFile,options):
             elif(key in ['decayRate','decay-rate']):
                 decayRate = float(val)
             elif(key in ['boundMultiplier','boundMult']):
-                boundMult = float(val)
+                try:
+                    boundMult = float(val)
+                except:
+                    if(val == 'adpative'):
+                        boundMult = 'adaptive'
+                    else:
+                        boundMult = False
             elif(key in ['instanceIncrement','instIncr']):
                 instIncr = int(val)
             elif(key in ['multipleTestCorrection','multiple-test-correction']):
