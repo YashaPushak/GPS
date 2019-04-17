@@ -47,6 +47,8 @@ while g < numReplicates:
 
     #TODO: Remove
     scenarioOptions['multipleTestCorrection'] = False
+    scenarioOptions['boundMult'] = False
+
 
     R.set('scenarioFile:' + str(gpsID),scenarioFile)
     R.set('scenarioOptions:' + str(gpsID),scenarioOptions)

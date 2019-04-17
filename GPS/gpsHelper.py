@@ -110,14 +110,15 @@ def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,minInstanc
     logger.debug("p = " + str(p))
     logger.debug("runs.keys() = " + str(runs.keys()))
 
-    for ptnO in runs.keys(): 
-        if(ptnO == ptn):
-            #We shouldn't calculate a cap for a point based on its own 
-            #performance
-            continue
-        cap = getPairwiseCap(p,runs,inst,seed,ptnO,ptn,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger)
-        logger.debug("Cap from " + ptnO + ": " + str(cap))
-        smallestCap = min(cap,smallestCap)
+    if(not boundMult == False): #If it is not False it will either be "adaptive" or a natural number.
+        for ptnO in runs.keys(): 
+            if(ptnO == ptn):
+                #We shouldn't calculate a cap for a point based on its own 
+                #performance
+                continue
+            cap = getPairwiseCap(p,runs,inst,seed,ptnO,ptn,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger)
+            logger.debug("Cap from " + ptnO + ": " + str(cap))
+            smallestCap = min(cap,smallestCap)
 
     logger.debug("Overall cap: " + str(smallestCap))
 
@@ -186,6 +187,27 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,mi
     else:
         budgetSpent = runEqvsC*perfC
 
+    if(boundMult == 'adaptive'):
+        #The parameters a and b, and the parametric function were determined
+        #experimentally using simulated data from theoretically motivated distributions
+        #That is to say, if we assume that we are comparing two parameter values, each
+        #of which results in running times drawn from the same exponential 
+        #distribution, then this formulation estimates a value for the bound multiplier
+        #that provides 99.95% confidence that one parameter value will not exceed the
+        #adaptive cap set by the other parameter value. Of course, the value for the
+        #bound multiplier is a function of the number of target algorithm runs. We 
+        #heuristically use the smaller of the two number of run equivalents as this
+        #number.
+        runEqvs = min(runEqvsC,runEqvsO)
+        if(runEqvs == 0):
+            boundMult = float('inf')
+        else: 
+            a = 7.20973934576952
+            b = -0.632746185276387
+            boundMult = np.exp(a*runEqvs**b)
+
+    logger.debug("One of the points has as few as " + str(runEqvs) + " run equivalents, so we are setting the bound multiplier to be " + str(boundMult))
+
     #We cutoff the challenging point once its performance on
     #the new instance has reached the same performance as
     #the old point multiplied by the boundMult. 
@@ -193,12 +215,12 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,mi
    
     logger.debug("Remaining budget for this point: " + str(budgetRemaining))
 
-    if(runEqvsC + 1 < minInstances or runEqvsO < minInstances):
-        logger.debug("However, we do not have enough runs yet to trust this adaptive cap, so we will give it at least minInstances*cutoff - budgetSpent instead")
+    #f(runEqvsC + 1 < minInstances or runEqvsO < minInstances):
+    #   logger.debug("However, we do not have enough runs yet to trust this adaptive cap, so we will give it at least minInstances*cutoff - budgetSpent instead")
 
-        budgetRemaining = max(minInstances*cutoff-budgetSpent,budgetRemaining)
+    #   budgetRemaining = max(minInstances*cutoff-budgetSpent,budgetRemaining)
 
-        logger.debug("The remaining budget for this point is now: " + str(budgetRemaining))
+    #   logger.debug("The remaining budget for this point is now: " + str(budgetRemaining))
  
     #We either return the budget the challening point has left,
     #or the original running time cutoff, whatever is smaller.
@@ -611,13 +633,6 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
 
     logger.debug("~~~Starting permutation test for " + str(parameter) + "~~~")
 
-
-    #Get the performance estimate for each point
-    f = {}
-    for ptn in ptns:
-        f[ptn] = calPerf(parameter,runs[ptn],pbest,prange,decayRate)
-
-
     eliminated = []
     for j in range(0,len(ptns)):
         if(not neverCapped(runs,ptns[j],cutoff)):
@@ -636,13 +651,6 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
     toBeCompared = []
 
     for p in perms:
-        if(f[p[0]] < f[p[1]]):
-            low = 0
-            hi = 1
-        else:
-            low = 1
-            hi = 0
-
         #logger.debug("*"*10 + ' ' + p[low] + ' <? ' + p[hi] + ' ' + '*'*60)
         #Next we check to see if either or both of p0 and p1 have been eliminated because they performed too much worse than the incumbent.
         #We heuristicaly assume all such points are equally bad, and that they are all worse than any point not eliminated in this way.
@@ -682,13 +690,13 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
             #insts = runs[p[low]].keys()
             #insts.extend(runs[p[hi]].keys())
             #insts = list(set(insts))
-            insts = intersection(runs[p[low]].keys(),runs[p[hi]].keys())
+            insts = intersection(runs[p[0]].keys(),runs[p[1]].keys())
             #Create the arrays that contain the statistics and number of changes
-            Times = {}; Changes = {};
-            Times[low] = []; Times[hi] = []; Changes[low] = []; Changes[hi] = []            #add each instance-seed pair
+            Times = [[],[]]; Changes = [[],[]];
+            #add each instance-seed pair
             for inst in insts:
                 #for each point
-                for ptl in [low,hi]:
+                for ptl in [0,1]:
                     #If the entry exists, add its information. Otherwise add sentinel values
                     if(inst in runs[p[ptl]].keys()):
                         [PAR10, pbestOld, runStatus, adaptiveCap] = runs[p[ptl]][inst]
@@ -698,8 +706,28 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
                         Times[ptl].append(-1)
                         Changes[ptl].append(float('inf')) #An infinite number of changes will cause the value to go to zero for any decay rate less than 1.
 
+            #when using weighted sums in a permutation test, for each instance, we 
+            #need to multiple the weights so that the variance in bootstrap samples
+            #isn't artificially inflated by having a small versus a large weight 
+            #for an instance that keep being randomly swapped. The negative effect
+            #of swapping weights (as we originally did) can be demonstrated by the 
+            #simple example in /global/scratch/ypushak/playground/bootstrapTest.py 
+            #Instead of multiplying when the time comes, we just add the changes now.
+
+            summedChanges = [Changes[0][i] + Changes[1][i] for i in range(0,len(Changes[0]))]
+
+            firstPerf = calPerfDirect(Times[0],summedChanges,decayRate)
+            secondPerf = calPerfDirect(Times[1],summedChanges,decayRate)
+
+            if(firstPerf <= secondPerf):
+                low = 0
+                hi = 1
+            else:
+                low = 1
+                hi = 0
+
             #Perform the permutation test
-            if(permutationTest(Times[low],Times[hi],Changes[low],Changes[hi],alphaBC,1000,decayRate,minInstances,logger)):
+            if(permutationTest(Times[low],Times[hi],summedChanges,alphaBC,1000,decayRate,minInstances,logger)):
                 #The difference is statistically significant
                 comp[(p[low],p[hi])] = -1
                 comp[(p[hi],p[low])] = 1
@@ -714,32 +742,17 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
     return comp
 
 
-def permutationTest(incData,chaData,incChanges,chaChanges,alpha,numSamples,decayRate,minInstances,logger):
+def permutationTest(incData,chaData,changes,alpha,numSamples,decayRate,minInstances,logger):
     if(not len(incData) == len(chaData)):
         raise ValueError("Permutation test can not be applied -- the lengths of the challenger and incumbent data are not the same.")
-
 
     if(len(incData) < minInstances or len(chaData) < minInstances):
         return False
 
-    #when using weighted sums in a permutation test, for each instance, we 
-    #need to multiple the weights so that the variance in bootstrap samples
-    #isn't artificially inflated by having a small versus a large weight 
-    #for an instance that keep being randomly swapped. The negative effect
-    #of swapping weights (as we originally did) can be demonstrated by the 
-    #simple example in /global/scratch/ypushak/playground/bootstrapTest.py 
-    #Instead of multiplying when the time comes (since the code below still
-    #swaps the weights as we originally did, we are using a bit of a hack here
-    #that just adds the changes together and then sets both points to have the
-    #same changes, which works out to the same thing in the end. 
-    for i in range(0,len(incChanges)):
-        incChanges[i] = incChanges[i] + chaChanges[i]
-        chaChanges[i] = incChanges[i]
-
     logger.debug("Permutation Test:")
 
-    incPerf = calPerfDirect(incData,incChanges,decayRate)
-    chaPerf = calPerfDirect(chaData,chaChanges,decayRate)
+    incPerf = calPerfDirect(incData,changes,decayRate)
+    chaPerf = calPerfDirect(chaData,changes,decayRate)
     if(incPerf == float('inf') or chaPerf == float('inf')):
         observedRatio = 1 #We don't know anything about one of the two, so we assume they are identical
     else:
@@ -752,22 +765,16 @@ def permutationTest(incData,chaData,incChanges,chaChanges,alpha,numSamples,decay
     for i in range(0,numSamples):
         cha = []
         inc = []
-        chaCh = []
-        incCh = []
         for m in range(0,len(incData)):
             if(random.choice([True,False])):
                 inc.append(incData[m])
                 cha.append(chaData[m])
-                incCh.append(incChanges[m])
-                chaCh.append(chaChanges[m])
             else:
                 inc.append(chaData[m])
                 cha.append(incData[m])
-                incCh.append(chaChanges[m])
-                chaCh.append(incChanges[m])
 
-        incPerf = calPerfDirect(inc,incCh,decayRate)
-        chaPerf = calPerfDirect(cha,chaCh,decayRate)
+        incPerf = calPerfDirect(inc,changes,decayRate)
+        chaPerf = calPerfDirect(cha,changes,decayRate)
         if(incPerf == float('inf') or chaPerf == float('inf')):
             rat = 1 #We don't know anything about one of the two, so we assume they are identical.
         elif(incPerf == 0 or chaPerf == 0):
@@ -775,8 +782,7 @@ def permutationTest(incData,chaData,incChanges,chaChanges,alpha,numSamples,decay
            print("chaPerf: " + str(chaPerf))
            print("inc: " + str(inc))
            print("cha: " + str(cha))
-           print("incCh: " + str(incCh))
-           print("chaCh: " + str(chaCh))
+           print("changes: " + str(changes))
            raise ValueError("Either Inc or Cha had a 0 for it's performance value.")
         else:
            rat = incPerf/chaPerf
