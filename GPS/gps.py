@@ -128,7 +128,7 @@ def parseScenarioFile(scenarioFile,options):
                 try:
                     boundMult = float(val)
                 except:
-                    if(val == 'adpative'):
+                    if(val == 'adaptive'):
                         boundMult = 'adaptive'
                     else:
                         boundMult = False
@@ -248,9 +248,11 @@ def initializeSeed(s):
     #Created: 2019-03-11
     if(s > 0):
         random.seed(s)
+        np.random.seed(s+12345)
     else:
         s = random.randrange(10000000,99999999)
         random.seed(s)
+        np.random.seed(s+12345)
 
     return s 
 
@@ -305,6 +307,7 @@ def gps(scenarioFile,scenarioOptions,gpsID):
     #are updated cause us to lose confidence in the current incumbent due
     #to decaying information from the stale target algorithm runs. 
     #TODO: Add support for forbidden and for other types of condiational clauses. 
+
 
     lastCPUTime = time.clock()
     #Initialize this in case we crash
@@ -367,9 +370,9 @@ def gps(scenarioFile,scenarioOptions,gpsID):
 
         #Initialize the random seed being used by GPS.
         s = initializeSeed(s)
-
+       
         logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget, pcsFile, wrapper, cutoff, minInstances, alpha, decayRate, boundMult, instIncr, multipleTestCorrection, host, port, dbid, gpsID, verbose)
-        
+ 
         #Run the instances in a random order for now. Though this might benefit from adapting the idea from Style et al.'s ordered racing procedure.
         random.shuffle(insts)
 
@@ -838,7 +841,9 @@ def incrIters(gpsID,R):
 def getNextOp(a,b,c,d,comp,integer):
     #Author: YP
     #Created: 2018-05-03
-    #The core search logic of GPS. Calculates what operation will be taken given the ordering defined by f and the status of noSrhink.
+    #Last updated: 2019-04-25
+    #The core search logic of GPS. Calculates what operation will be taken 
+    #given the ordering defined in comp and the status of noSrhink.
 
     direction = ''
     weakness = []
@@ -851,21 +856,28 @@ def getNextOp(a,b,c,d,comp,integer):
         #best to increase the interval in the direction that shows
         #the best performance
         #IF we have monotonicity, then we expect the optimum to have 
-        #drifted away from the bracket. If we do not, then we may be
-        #seeing too much noise to really have a precise measurement,
-        #so we increase the bracket and increase the number of instances
+        #drifted away from the bracket, so we increase the bracket in
+        #the direction of monotonicity.
+        # If we do not, then we may be seeing too much noise to really 
+        #have a precise measurement, so we keep the bracket until we 
+        #have tried the points on more instances
         op = 'Expand'
-        if(comp[('a','b')] < 0):
-            #a < b
+        if(comp[('a','c')] <= 0 and comp[('c','d')] <= 0 and comp[('d','b')] <= 0):
+            #a < c <= d <= b 
+            #(this must be true if it is not bitonic and it passed the 
+            #previous condition)
             #Increase in the direction of a
             direction = 'a'
-        elif(comp[('a','b')] > 0):
-            #a > b
+        elif(comp[('a','c')] >= 0 and comp[('c','d')] >= 0 and comp[('d','b')] >= 0):
+            #a >= c >= d > b 
             #Increase in the direction of b
             direction = 'b' 
         else:
+            #The performance is tritonic. The best thing to do in this case
+            #is to just keep the current bracket and evaluate each point on
+            #more instances. 
             op = 'Keep'
-            weakness = ['a','b']
+            weakness = ['a','b','c','d']
    
     elif(not noShrink):
         #The bracket is still good.              
@@ -1237,122 +1249,128 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
 
     logger = getLogger(logLocation + '/gps-slave-' + str(gpsSlaveID) + '.log',verbose)
 
-    oldRunID = None
-    loopCount = 0
-    while(oldRunID is None):
-        loopCount += 1
-        if(loopCount > loopLimit):
-            logger.debug('INFINITE LOOP in gpsSlave()?')
-        oldRunID = redisHelper.getRunID(gpsID,R)
+    try:
 
-    task = None
-    done = False
-    while not done:
-        oldVerbose = verbose
-        verbose = redisHelper.getVerbosity(gpsID,R)
-        if(not oldVerbose == verbose):
-            logger = getLogger(logLocation + '/gps-slave-' + str(gpsSlaveID) + '.log',verbose)
+        oldRunID = None
+        loopCount = 0
+        while(oldRunID is None):
+            loopCount += 1
+            if(loopCount > loopLimit):
+                 logger.debug('INFINITE LOOP in gpsSlave()?')
+            oldRunID = redisHelper.getRunID(gpsID,R)
 
-        #If there is a task
-        if(task is not None):
+        task = None
+        done = False
+        while not done:
+            oldVerbose = verbose
+            verbose = redisHelper.getVerbosity(gpsID,R)
+            if(not oldVerbose == verbose):
+                logger = getLogger(logLocation + '/gps-slave-' + str(gpsSlaveID) + '.log',verbose)
 
-            logger.debug("*"*50)
-            logger.debug("Found a new task:" + str(task))
-            logger.debug("*"*50)
+            #If there is a task
+            if(task is not None):
+ 
+                logger.debug("*"*50)
+                logger.debug("Found a new task:" + str(task))
+                logger.debug("*"*50)
 
-            logger.debug("Calculating the configuration we need to evaluate")
+                logger.debug("Calculating the configuration we need to evaluate")
+   
+                params = cp.deepcopy(task['alg']['params'])
+                params[task['p']] = task['pt']
+                #NOTE: We're going to assume that there are no grandchild dependencies. 
+                params = pcsHelper.handleInactive(pcs,params,task['p'])
+                task['alg']['params'] = params
 
-            params = cp.deepcopy(task['alg']['params'])
-            params[task['p']] = task['pt']
-            #NOTE: We're going to assume that there are no grandchild dependencies. 
-            params = pcsHelper.handleInactive(pcs,params,task['p'])
-            task['alg']['params'] = params
-
-            logger.debug("Calculating the regularization penalty")
-            regFactor = getRegPenalty(task['p'],task['pt'],p0,prange,lmbda=2)
-            logger.debug("The penalty is: " + str(regFactor))
-            logger.debug("Original cutoff: " + str(task['cutoff']))
-            logger.debug("New cutoff: " + str(task['cutoff']/regFactor))
+                logger.debug("Calculating the regularization penalty")
+                regFactor = getRegPenalty(task['p'],task['pt'],p0,prange,lmbda=2)
+                logger.debug("The penalty is: " + str(regFactor))
+                logger.debug("Original cutoff: " + str(task['cutoff']))
+                logger.debug("New cutoff: " + str(task['cutoff']/regFactor))
 
 
-            logger.debug("Running the task")
-            startTime = time.time()
+                logger.debug("Running the task")
+                startTime = time.time()
 
-            with redisHelper.running(gpsID,R):
-                #If we're using regularization, we can simply divide the cutoff
-                #so that we save time by adjusting our cap, and then when we
-                #are done we multiply the penalty factor back in to reflect
-                #the penalized running time. 
-                res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,logger)
-                runtime = runtime*regFactor
-                cutoffi = cutoffi*regFactor
+                with redisHelper.running(gpsID,R):
+                    #If we're using regularization, we can simply divide the cutoff
+                    #so that we save time by adjusting our cap, and then when we
+                    #are done we multiply the penalty factor back in to reflect
+                    #the penalized running time. 
+                    res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,logger)
+                    runtime = runtime*regFactor
+                    cutoffi = cutoffi*regFactor
 
-            endTime = time.time()
-            logger.debug("Done running the task.")
+                endTime = time.time()
+                logger.debug("Done running the task.")
 
-            runTrace.append((startTime,endTime,task))
+                runTrace.append((startTime,endTime,task))
  
 
-            if(runtime == 0 and not cutoffi == 0):
-                logger.debug("The running time was 0, but the cutoff was not.")
-                logger.debug(str([res,runtime,misc,timeSpent,capType,cutoffi]))
-                #return
+                if(runtime == 0 and not cutoffi == 0):
+                    logger.debug("The running time was 0, but the cutoff was not.")
+                    logger.debug(str([res,runtime,misc,timeSpent,capType,cutoffi]))
+                    #return
 
-            #If we haven't exhausted the budget with this run
-            if(not (capType == 'Budget Cap' and res == 'BUDGET-TIMEOUT')):
-                #Store the results back in the database
-                logger.debug("Storing the results back in the database.")
-                curRunID = updateRunResults(gpsID,task['p'],task['pt'],task['inst'],task['seed'],res,runtime,timeSpent,task['alg'],cutoffi,oldRunID,prange,paramType,logger,R)#JUMP0
+                #If we haven't exhausted the budget with this run
+                if(not (capType == 'Budget Cap' and res == 'BUDGET-TIMEOUT')):
+                    #Store the results back in the database
+                    logger.debug("Storing the results back in the database.")
+                    curRunID = updateRunResults(gpsID,task['p'],task['pt'],task['inst'],task['seed'],res,runtime,timeSpent,task['alg'],cutoffi,oldRunID,prange,paramType,logger,R)#JUMP0
+                else:
+                    logger.debug("This run caused us to exceed the budget, so we will discard the results.")
+
+                logger.debug("Updating the budget")
+                updateBudget(gpsID,timeSpent,R)
+
+            #Else, if there is not a task, sleep for a short period of time.
             else:
-                logger.debug("This run caused us to exceed the budget, so we will discard the results.")
+                logger.debug("There was no task to run, so we are sleeping for " + str(sleepTime) + " CPU seconds.")
+                time.sleep(sleepTime)
 
-            logger.debug("Updating the budget")
-            updateBudget(gpsID,timeSpent,R)
-
-        #Else, if there is not a task, sleep for a short period of time.
-        else:
-            logger.debug("There was no task to run, so we are sleeping for " + str(sleepTime) + " CPU seconds.")
-            time.sleep(sleepTime)
-
-        if(time.clock() - lastCPUTime > 5):
-            lastCPUTime = updateCPUTime(gpsID,lastCPUTime,R)
+            if(time.clock() - lastCPUTime > 5):
+                lastCPUTime = updateCPUTime(gpsID,lastCPUTime,R)
 
 
-        logger.debug("Checking for a new task.")        
-        #Query the database for a task, calculate the adaptive cap for the task,
-        #and then enter the task into a list of tasks that are currently being processed
-        #set the entry to expire after double the task's adaptive cap.
-        task, budget, curRunID = redisHelper.fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,logger)
-        logger.debug("Done Fetching.") 
+            logger.debug("Checking for a new task.")        
+            #Query the database for a task, calculate the adaptive cap for the task,
+            #and then enter the task into a list of tasks that are currently being processed
+            #set the entry to expire after double the task's adaptive cap.
+            task, budget, curRunID = redisHelper.fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,logger)
+            logger.debug("Done Fetching.") 
 
-        logger.debug("Checking if the budget has been exhausted.")
-        #Check the budget status.
-        done = time.time() - budget['startTime'] >= budget['wall']
-        done = done or budget['totalCPUTime'] >= budget['cpu']
-        done = done or budget['totalRuns'] >= budget['run']
-        done = done or budget['totalIters'] >= budget['iter']
-        done = done or not curRunID == oldRunID
+            logger.debug("Checking if the budget has been exhausted.")
+            #Check the budget status.
+            done = time.time() - budget['startTime'] >= budget['wall']
+            done = done or budget['totalCPUTime'] >= budget['cpu']
+            done = done or budget['totalRuns'] >= budget['run']
+            done = done or budget['totalIters'] >= budget['iter']
+            done = done or not curRunID == oldRunID
+    
 
+        logger.info("The GPS Slave has stopped running.")
 
-    logger.info("The GPS Slave has stopped running.")
+        message = "Reason for stopping: "
+        if(time.time() - budget['startTime'] >= budget['wall']):
+            message += "wall clock budget exhausted"
+        elif(budget['totalCPUTime'] >= budget['cpu']):
+            message += "CPU budget exhausted"
+        elif(budget['totalRuns'] >= budget['run']):
+            message += "run budget exhausted"
+        elif(budget['totalIters'] >= budget['iter']):
+            message += "iteration budget exhausted"
+        elif(not curRunID == oldRunID):
+            message += "the GPS run ID has changed from " + str(oldRunID) + " to " + str(curRunID)
 
-    message = "Reason for stopping: "
-    if(time.time() - budget['startTime'] >= budget['wall']):
-        message += "wall clock budget exhausted"
-    elif(budget['totalCPUTime'] >= budget['cpu']):
-        message += "CPU budget exhausted"
-    elif(budget['totalRuns'] >= budget['run']):
-        message += "run budget exhausted"
-    elif(budget['totalIters'] >= budget['iter']):
-        message += "iteration budget exhausted"
-    elif(not curRunID == oldRunID):
-        message += "the GPS run ID has changed from " + str(oldRunID) + " to " + str(curRunID)
+        logger.info(message)
 
-    logger.info(message)
+        helper.saveObj(logLocation,runTrace,'run-trace-gps-' + str(gpsID) + '-slave-' + str(gpsSlaveID))
 
-    helper.saveObj(logLocation,runTrace,'run-trace-gps-' + str(gpsID) + '-slave-' + str(gpsSlaveID))
+        return runTrace
+    except:
+        logger.exception("exiting with failure")
+        raise
 
-    return runTrace
 
 
 
