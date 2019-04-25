@@ -46,8 +46,9 @@ while g < numReplicates:
     scenarioOptions['dbid'] = dbid
 
     #TODO: Remove
-    scenarioOptions['multipleTestCorrection'] = False
-    scenarioOptions['boundMult'] = False
+    #scenarioOptions['boundMult'] = 'adaptive'
+    #scenarioOptions['alpha'] = 0.05
+    #scenarioOptions['minInstances'] = 5
 
 
     R.set('scenarioFile:' + str(gpsID),scenarioFile)
