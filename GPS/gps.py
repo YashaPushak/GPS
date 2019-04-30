@@ -10,6 +10,7 @@
 import helper
 import pcsParser
 import pcsHelper
+import dictDiffer
 
 import math
 import copy as cp
@@ -502,12 +503,12 @@ def gps(scenarioFile,scenarioOptions,gpsID):
             
 
                 #Check to see if anything has changed   
-                oldRuns = str(runs[p])
+                oldRuns = cp.deepcopy(runs[p])
        
                 #Get the new running times
                 runs[p] = redisHelper.getRuns(gpsID,p,ptns,R)
 
-                if(str(runs[p]) == oldRuns):
+                if(not dictDiffer.changed(runs[p],oldRuns)):
                     #logger.debug("Nothing has changed for this parameter. We are skipping it.")
                     #Nothing has changed
                     continue

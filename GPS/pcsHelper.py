@@ -17,7 +17,7 @@ def reparameterizePCS(pcsFile):
 
     for p in pcs.paramList:
         comment = pcs.getAttr(p,'comment')
-        if(len(comment) >= 0):
+        if(len(comment) > 0):
             comment = pcs.getAttr(comment,'text')
         if(pcs.getAttr(p,'type') == 'categorical' and 'treat numeric' in comment):
             #We are converting this number-based categorical parameter into a numerical parameter
@@ -151,7 +151,7 @@ def reparameterizePCS(pcsFile):
             parentValues = ', '.join([str(v) for v in parentValues])
             parentComment = '# Created automatically as a parent for ' + pcs.getAttr(p,'name')
             #Create a text-based representation of the new parent parameter
-            line = parentName + ' categorical {' + parentValues + '} [' + parentDefault + '] ' + parentComment
+            line = parentName + ' categorical {' + parentValues + '} [' + str(parentDefault) + '] ' + parentComment
             #Parse it
             obj = pcs.parseCategorical(line)
             #and add it to the document
@@ -238,13 +238,33 @@ def handleInactive(pcs,config,p):
     if(not pcs.isActive(p,config)):
         setActive(pcs,config,p)
 
-    #Now reduce the configuration only to the remaining active parameters. 
-    reducedConfig = {}
-    for p in config.keys():
-        if(pcs.isActive(p,config)):
-            reducedConfig[p] = config[p]
 
-    return reducedConfig
+    return removeInactive(pcs,config)
+
+
+def removeInactive(pcs,config):
+    #Author: YP
+    #Created: 2019-04-26
+    #Removes all inactive child parameters. 
+
+    #Now reduce the configuration only to the remaining active parameters.
+    #We need to keep on doing this until no changes occur, since there may
+    #be grandchildren that are not turned off correctly in the first pass
+    #that removes their parents. 
+    oldConfig = config
+    reducedConfig = {}
+    changed = True
+    while(changed):
+        changed = False
+        for p in oldConfig.keys():
+            if(pcs.isActive(p,oldConfig)):
+                reducedConfig[p] = oldConfig[p]
+            else:
+                changed = True
+        oldConfig = reducedConfig
+        reducedConfig = {}
+
+    return oldConfig
 
 
 def setActive(pcs,config,p):
