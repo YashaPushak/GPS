@@ -84,12 +84,13 @@ def parseScenarioFile(scenarioFile,options):
     #wrapper
     #insts
     #cutoff
-    minInstances=10
+    minInstances=5
     alpha=0.05
-    decayRate=0.05
-    boundMult=2 
+    decayRate=0.2
+    boundMult='adaptive'
     instIncr=1
     multipleTestCorrection=False
+    banditQueue='incumbent'
     wallBudget=float('inf')
     cpuBudget=float('inf')
     runBudget=float('inf')
@@ -137,6 +138,8 @@ def parseScenarioFile(scenarioFile,options):
                 instIncr = int(val)
             elif(key in ['multipleTestCorrection','multiple-test-correction']):
                 multipleTestCorrection = val.lower() in ['true','on']
+            elif(key in ['banditQueue','bandit-queue']):
+                banditQueue = val.lower()
             elif(key in ['wallclock-limit','wallclockLimit']):
                 wallBudget = int(val)
             elif(key in ['cputime-limit','cputimeLimit']):
@@ -157,7 +160,9 @@ def parseScenarioFile(scenarioFile,options):
                 port = int(val)
             elif(key in ['dbid']):
                 dbid = int(val)
-    
+   
+    print(verbose)
+ 
     if('pcs-file' in options.keys()):
         pcsFile = options['pcs-file']
     if('pcsFile' in options.keys()):
@@ -196,6 +201,10 @@ def parseScenarioFile(scenarioFile,options):
         multipleTestCorrection = options['multipleTestCorrection'] in ['True',True,'on']
     if('multiple-test-correction' in options.keys()):
         multipleTestCorrection = options['multiple-test-correction'] in ['True',True,'on']
+    if('banditQueue' in options.keys()):
+        banditQueue = options['banditQueue']
+    if('bandit-queue' in options.keys()):
+        banditQueue = options['bandit-queue']
     if('wallclock-limit' in options.keys()):
         wallBudget = options['wallclock-limit']
     if('wallclockLimit' in options.keys()):
@@ -227,7 +236,7 @@ def parseScenarioFile(scenarioFile,options):
     if('dbid' in options.keys()):
         dbid = options['dbid']
    
-    return pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid
+    return pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,banditQueue,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid
 
 
 def parseInstances(instFile,stripChars=0):
@@ -257,7 +266,7 @@ def initializeSeed(s):
 
     return s 
 
-def logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget, paramFile, wrapper, cutoff, minInstances, alpha, decayRate, boundMult, instIncr, multiplTestCorrection, host, port, dbid, gpsID, verbose): 
+def logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget, paramFile, wrapper, cutoff, minInstances, alpha, decayRate, boundMult, instIncr, multiplTestCorrection, banditQueue, host, port, dbid, gpsID, verbose): 
     #Author: YP
     #Created: 2019-03-11
 
@@ -277,6 +286,7 @@ def logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget
     logger.info("Bound Multiplier = " + str(boundMult))
     logger.info("Instance Increment = " + str(instIncr))
     logger.info("Multiple test correction = " + str(multiplTestCorrection))
+    logger.info("Bandit Queue = " + str(banditQueue))
     logger.info("host = " + str(host))
     logger.info("port = " + str(port))
     logger.info("dbid = " + str(dbid))
@@ -314,7 +324,7 @@ def gps(scenarioFile,scenarioOptions,gpsID):
     #Initialize this in case we crash
     pbest = None
 
-    pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid = parseScenarioFile(scenarioFile,scenarioOptions)
+    pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,banditQueue,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid = parseScenarioFile(scenarioFile,scenarioOptions)
 
     R = redisHelper.connect(host,port,dbid)
     redisHelper.deleteDB(R)
@@ -372,7 +382,7 @@ def gps(scenarioFile,scenarioOptions,gpsID):
         #Initialize the random seed being used by GPS.
         s = initializeSeed(s)
        
-        logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget, pcsFile, wrapper, cutoff, minInstances, alpha, decayRate, boundMult, instIncr, multipleTestCorrection, host, port, dbid, gpsID, verbose)
+        logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget, pcsFile, wrapper, cutoff, minInstances, alpha, decayRate, boundMult, instIncr, multipleTestCorrection, banditQueue, host, port, dbid, gpsID, verbose)
  
         #Run the instances in a random order for now. Though this might benefit from adapting the idea from Style et al.'s ordered racing procedure.
         random.shuffle(insts)
@@ -476,19 +486,39 @@ def gps(scenarioFile,scenarioOptions,gpsID):
         fibSeq = [1,1,2,3]
         fibSeqInd = 1
 
+        #We will sample parameters with probability equaly to a number from
+        #the Fibonnacci sequence, whose index will be the number of changes
+        #made to that parameter's incumbent. 
+        numIncUpdates = newParamDict(params,0)
+        sigDiffSet = newParamDict(params,[])
+        paramPool = cp.deepcopy(params)
 
         while not done:
             verbose = redisHelper.getVerbosity(gpsID,R)
             logger = getLogger(logLocation + '/gps.log',verbose)
-            #Randomize the order in which we visit each parameter. 
-            random.shuffle(params)
-            logger.debug("Proceeding in the order: " + str(params))
-            for p in params:
+            if(banditQueue in ['incumbent','differences']):
+                #In case we have run out of options
+                if(len(paramPool) == 0):
+                    paramPool = cp.deepcopy(params)
+                    #logger.debug("We ran out of parameters. Reseeding the pool.")
+                #logger.debug("Set of parameters in the pool: " + str(paramPool))
+                #Randomly sample a parameter from the pool
+                selectedParams = [banditSample(paramPool,numIncUpdates,sigDiffSet,fibSeq,banditQueue,logger)]
+                #Remove this parameter so that we don't immediately try it again
+                paramPool.remove(selectedParams[0])
+            else:
+                #Randomize the order in which we visit each parameter. 
+                random.shuffle(params)
+                #We're visiting each parameter once before looping
+                selectedParams = params
+            
+            #logger.debug("Proceeding in the order: " + str(selectedParams))
+            for p in selectedParams:
                 pts, ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
 
                 finishedDefault = isDoneDefault(p,finishedDefault,gpsID,ptns,R,logger)
                 if(not finishedDefault[p]):
-                    logger.debug("Not yet done the default for " + str(p))
+                    #logger.debug("Not yet done the default for " + str(p))
                     continue
 
                 #logger.debug("Checking on parameter " + p)
@@ -514,6 +544,10 @@ def gps(scenarioFile,scenarioOptions,gpsID):
                     continue
 
                 logger.debug("Checking on parameter " + p)
+                #We are performing work on a parameter, so it is possible that the parameters
+                #that have been removed from the pool due to inactivity will have new updates
+                #once we are done. 
+                paramPool = cp.deepcopy(params)
 
                 #Update the other parameters to obtain the current incumbent configuration
                 alg[p]['params'] = pbest
@@ -529,8 +563,9 @@ def gps(scenarioFile,scenarioOptions,gpsID):
                 pbest[p], inc[p], pbestNumRuns[p], pbestTime[p], prevIncInsts[p] = updateIncumbent(p,pts,ptns,runs[p],pbest,prevIncInsts[p],prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger)
                 redisHelper.saveIncumbent(gpsID,p,pbest[p],pbestNumRuns[p],pbestTime[p],R)
                 if(not str(pbest[p]) == oldPbest):
+                    numIncUpdates[p] += 1
                     incumbentTrace.append((time.time(),cp.deepcopy(pbest)))
-                    logger.info("The incumbent for " + p + " is now " + str(pbest[p]) + "; estimated PAR10: " + str(pbestTime[p]) + ", based on " + str(pbestNumRuns[p]) + " run equivalents.")
+                    logger.info("The new incumbent for " + p + " is now " + str(pbest[p]) + "; estimated PAR10: " + str(pbestTime[p]) + ", based on " + str(pbestNumRuns[p]) + " run equivalents.")
 
 
                 budget = redisHelper.getBudget(gpsID,R)
@@ -552,7 +587,9 @@ def gps(scenarioFile,scenarioOptions,gpsID):
 
                 #Get the relative ordering of the performances as defined by a permutation test
                 comp = permTestSep(p,ptns,runs[p],pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger) 
-            
+           
+                updateDifferentSet(p,comp,ptns,pts,sigDiffSet)
+ 
                 log = 'Permutation test ordering: '
                 if(paramType[p] in ['real','integer']):
                     sptns = ['a','c','d','b']
@@ -817,6 +854,64 @@ def updateInstIncr(queueState,fibSeqInd,fibSeq,gpsID,R,logger):
  
     return instIncr, fibSeqInd, fibSeq
 
+
+def updateDifferentSet(p,comp,ptns,pts,sigDiffSet):
+    #Author: YP
+    #Created: 2019-04-30
+    #Updates the set of pairs of points for the parameter
+    #for which a statistically signficant difference has been
+    #observed at least once.
+
+    for i in range(0,len(ptns)):
+        for j in range(0,len(ptns)):
+            if(i == j):
+                continue
+            if(comp[(ptns[i],ptns[j])] < 0): #Always use the ordering ptns[i] < ptns[j]
+                alreadySeen = False
+                for pair in sigDiffSet[p]:
+                    alreadySeen = alreadySeen or (helper.isClose(pair[0],pts[i]) and helper.isClose(pair[1],pts[j]))
+                if(not alreadySeen):
+                    sigDiffSet[p].append((pts[i],pts[j]))
+
+
+def banditSample(samplePool,numIncUpdates,sigDiffSet,fibSeq,banditQueue,logger):
+    #Author: YP
+    #Created: 2019-04-30
+    #Last updated: 2019-04-30
+    #Randomly samples a parameter from the sample
+    #pool with probability equal to the fibonnacci 
+    #number with index one more than the number of
+    #times that parameter has been updated, or one
+    #more than the number of times we have observed
+    #a statistically significant difference between
+    #a pair of points for that parameter.
+
+    #Populate an array according to the probability
+    #of selecting each parameter.
+    if(banditQueue == 'incumbent'):
+        pool = [p for p in samplePool for i in range(getFib(numIncUpdates[p]+1,fibSeq))]
+    elif(banditQueue == 'differences'):
+        pool = [p for p in samplePool for i in range(getFib(len(sigDiffSet[p])+1,fibSeq))]
+    #logger.debug("Sample pool: " + str(pool))
+
+    #sample a parameter
+    return random.choice(pool)
+
+
+def getFib(n,fibSeq):
+    #Author: YP
+    #Created: 2019-04-30
+    #Last updated: 2019-04-30
+    #Returns the nth fibonnaci sequence
+
+    if(len(fibSeq) == 0):
+        fibSeq.append([1,1])
+    while(n >= len(fibSeq)):
+        fibSeq.append(fibSeq[-1] + fibSeq[-2])
+    if(n < 0):
+        raise ValueError("Cannot get fibonnacci number for n < 0")
+
+    return fibSeq[n]
 
 
 def updateCPUTime(gpsID,lastCPUTime,R):
@@ -1240,7 +1335,7 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
 
     lastCPUTime = time.clock()
 
-    pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid = parseScenarioFile(scenarioFile,scenarioOptions)
+    pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,banditQueue,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid = parseScenarioFile(scenarioFile,scenarioOptions)
 
 
     params,paramType,p0,prange,pcs = loadPCS(pcsFile)

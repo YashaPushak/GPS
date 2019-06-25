@@ -50,6 +50,15 @@ while g < numReplicates:
     #scenarioOptions['alpha'] = 0.05
     #scenarioOptions['minInstances'] = 5
 
+    #scenarioOptions['banditQueue'] = 'differences'
+    #scenarioOptions['banditQueue'] = 'incumbent'
+    #scenarioOptions['banditQueue'] = 'off'
+
+    #scenarioOptions['decayRate'] = 0.9
+    #scenarioOptions['decayRate'] = 0.5
+    #scenarioOptions['decayRate'] = 0.2
+    #scenarioOptions['decayRate'] = 0.05
+
 
     R.set('scenarioFile:' + str(gpsID),scenarioFile)
     R.set('scenarioOptions:' + str(gpsID),scenarioOptions)
