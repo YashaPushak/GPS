@@ -11,87 +11,6 @@ loopLimit = 10000
 #Both gps.py and redisHelper.py needed to be able to call the method getAdaptiveCap, but I wasn't able to have the method be defined in either file because it created a circular import that caused a cryptic and misleading error. To fix this, I had to create this file that contains getAdaptiveCap and any child functions so that both of the other files could reference this one. 
 
 
-def getAdaptiveCapOld(p,runs,ptn,cutoff,pbest,bestStat,numRunsInc,prange,decayRate,boundMult,minInstances,logger):
-    #Author: YP
-    #Last updated: 2017-07-10
-
-    #If the number of runs performed by the incumbnet is less than minInstances, then we assume that all of the incumbent's remaining runs are censored
-    #when we calculate the running time cap. 
-
-
-    j = ord(ptn) - ord('a') #Convert to an index
-
-    ptn = ['a','b','c','d']
-
-    if(numRunsInc < minInstances):
-        bestStat = bestStat*numRunsInc + cutoff*10*(minInstances-numRunsInc)
-
-
-    stats = []
-    numRuns = []
-    numRunEqvs = []
-    for pt in ptn:
-        if(len(runs[pt]) > 0):
-            stat = calPerf(p,runs[pt],pbest,prange,decayRate)
-            stats.append(stat)
-        else:
-            stat = float('inf')
-            stats.append(float('inf'))
-        numRuns.append(len(runs[pt].keys()))
-
-        numRunEqvs.append(calNumRunsEqvs(p,runs[pt],pbest,prange,decayRate))
-
-        logger.info(pt + ': ' + str(stat) + ' (' + str(numRunEqvs[-1]) + ' runs)')
-
-    #We evaluate each point on at least 3 run equivalents
-    remainingRuns = max(minInstances-numRunEqvs[j],1)
-    #This point can have at least as many runs remaining as the point with the largest number of runs performed.
-    remainingRuns = max(remainingRuns,max(numRuns)-numRuns[j])
-
-    if(bestStat == stats[j]):
-        #Nothing to do here, the incumbent doesn't get an adaptive cap.
-        
-        if(bestStat < float('inf')):
-            logger.info("Running the incumbent (" + ptn[j] + "), no adaptive cap will be used.")
-        else:
-            logger.info("No runs have been performed yet, cannot use an adaptive cap.")
-        return cutoff
-
-    #provides the largest value that the running time can be before the weighted performance value for j exceeds the incumbent's weighted performance value by more than a facter equal to the bound multiplier.
-    if(numRunEqvs[j] == 0):
-        budgetSpent = 0
-    else:
-        budgetSpent = stats[j]*numRunEqvs[j]
-
-    cutoffi = bestStat*boundMult*(remainingRuns + numRunEqvs[j]) - budgetSpent
-
-    logger.debug("beststat: " + str(bestStat))
-    logger.debug("boundMult: " + str(boundMult))
-    logger.debug("Remaining number of runs: " + str(remainingRuns))
-    logger.debug("Weighted number of runs multiplied by bestStat: " + str(remainingRuns + numRunEqvs[j]))
-    logger.debug("stats[j]: " + str(stats[j]))
-    logger.debug("cumulative budget*boundMult used as a bound: " + str(bestStat*boundMult*(remainingRuns + numRunEqvs[j])))
-    logger.debug("cumulative budget spent so far: "  + str(budgetSpent))
-    logger.debug("Budget remaining: " + str(cutoffi))
-
-
-    #Take the smaller of the two
-    cutoffi = min(cutoffi,cutoff)
-    #make sure the cutoff is non-negative.
-    cutoffi = max(cutoffi,0)
-
-    
-    if(cutoffi < cutoff):
-        if(cutoffi > 0):
-            logger.debug("The challenger (" + ptn[j] + ") appears to be performing poorly, the adaptive cap has been set to: " + str(cutoffi))
-        else:
-            logger.debug("The challenger (" + ptn[j] + ") has taken more than " + str(boundMult) + " times the incumbent to perform "  + str(numRunEqvs[j]) + " runs (the incumbent has performed even more).")
-    else:
-        logger.debug("The challenger (" + ptn[j] + ") can use the full running time cutoff " + str(cutoff))
-
-
-    return cutoffi
-
 def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger):
     #Author: YP
     #Created: 2018-10-04
@@ -131,7 +50,7 @@ def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,minInstanc
 def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger):
     #Author: YP
     #Created: October 4th, 2018
-    #Last updated: 2019-04-23
+    #Last updated: 2019-06-25
     #Calculates the pairwise adaptive cap between two points
     #using only the intersection of instances for which they
     #both have completed runs. 
@@ -171,7 +90,7 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,mi
     for inst in insts:
         #for each point
         for ptl in ['Original','Challenger']:
-            [PAR10, pbestOld, runStatus, adaptiveCap] = runs[ptn[ptl]][inst]
+            [PAR10, pbestOld, runStatus, adaptiveCap, sol] = runs[ptn[ptl]][inst]
             Times[ptl].append(PAR10)
             Changes[ptl].append(calChanges(p,pbestOld,pbest,prange))
 
@@ -189,7 +108,7 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,mi
     challengerPerf = calPerfDirect(Times['Challenger'],summedChanges,decayRate)
 
     #For the original point we also need to include the information about the current instance.
-    [PAR10, pbestOld, runStatus, adaptiveCap] = runs[ptn['Original']][(instC,seedC)]
+    [PAR10, pbestOld, runStatus, adaptiveCap, sol] = runs[ptn['Original']][(instC,seedC)]
     Times['Original'].append(PAR10)
     summedChanges.append(calChanges(p,pbestOld,pbest,prange))
     originalPerf = calPerfDirect(Times['Original'],summedChanges,decayRate)
@@ -552,12 +471,13 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
 def calPerf(p,runs,pbest,prange,decayRate):
     #Author: YP
     #Created: 2018-07-05
+    #Last updated: 2019-06-25
     #A wrapper for calPerf that extracts the times and changes as arrays from the new run format
 
     times = []
     changes = []
     for (inst,seed) in runs.keys():
-        [PAR10, pbestOld, runStatus, adaptiveCap] = runs[(inst,seed)]
+        [PAR10, pbestOld, runStatus, adaptiveCap, sol] = runs[(inst,seed)]
 
         if(runStatus == 'ADAPTIVE-CAP-TIMEOUT'):
             #One of the runs was censored by an adaptive cap, so we are now
@@ -657,7 +577,7 @@ def getParamString(params):
 def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger):
     #Author: YP
     #Created: 2018-04-11
-    #Last updated: 2018-05-03
+    #Last updated: 2019-06-25
     #Conforms to the cat format. 
     #Defines the relative ordering between the points by assessing
     #statistical significance with a permutation test.
@@ -730,7 +650,7 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
                 for ptl in [0,1]:
                     #If the entry exists, add its information. Otherwise add sentinel values
                     if(inst in runs[p[ptl]].keys()):
-                        [PAR10, pbestOld, runStatus, adaptiveCap] = runs[p[ptl]][inst]
+                        [PAR10, pbestOld, runStatus, adaptiveCap, sol] = runs[p[ptl]][inst]
                         Times[ptl].append(PAR10)
                         Changes[ptl].append(calChanges(parameter,pbestOld,pbest,prange))
                     else:
@@ -862,14 +782,14 @@ def permutationTest(incData,chaData,changes,alpha,numSamples,decayRate,minInstan
 def neverCapped(runs,ptn,cutoff):
     #Author: YP
     #Created: 2018-07-04
-    #Last upeadted; 2018-07-05
+    #Last upeadted; 2019-06-25
     #Checks to see if this parameter value has exhausted a budget set by an
     #adaptive cap, ever.
 
     #runs[ptn][(inst,seed)] = [PAR10, numChanges, runStatus, adaptiveCap]
 
     for instSeed in runs[ptn].keys():
-        [PAR10, pbestOld, runStatus, adaptiveCap] = runs[ptn][instSeed]
+        [PAR10, pbestOld, runStatus, adaptiveCap, sol] = runs[ptn][instSeed]
         if(adaptiveCap < cutoff and PAR10 >= adaptiveCap):
             return False
 
@@ -877,7 +797,8 @@ def neverCapped(runs,ptn,cutoff):
 
 
 def enoughData(runs,pbest,prange,parameter,p0,p1,decayRate,minInstances):
-
+    #Author: YP
+    #Last updated: 2019-06-25
     #Take the intersection of the two points running times,
     #and then take the product of each change to obtain
     #the minimum weight for each instance. Use this to see
@@ -886,10 +807,10 @@ def enoughData(runs,pbest,prange,parameter,p0,p1,decayRate,minInstances):
     runEqvs = 0
     for inst in intersection(runs[p0].keys(),runs[p1].keys()):
         #first change
-        [PAR10, pbestOld, runStatus, adaptiveCap] = runs[p0][inst]
+        [PAR10, pbestOld, runStatus, adaptiveCap, sol] = runs[p0][inst]
         cha0 = calChanges(parameter,pbestOld,pbest,prange)
         #second change
-        [PAR10, pbestOld, runStatus, adaptiveCap] = runs[p1][inst]
+        [PAR10, pbestOld, runStatus, adaptiveCap, sol] = runs[p1][inst]
         cha1 = calChanges(parameter,pbestOld,pbest,prange)
         #Add the changes to reflect the total uncertainty we have
         change = cha0 + cha1

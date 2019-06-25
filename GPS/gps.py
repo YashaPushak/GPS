@@ -630,11 +630,11 @@ def newRuns(ptns):
 
 def newPt():
     #Author: YP
-    #Last updated: 2018-07-05
+    #Last updated: 2019-06-25
     #This was the old method for storing information it has since been updated.
     #return {'times':[],'insts':[],'changes':[]}
     #The new method:
-    #{(inst,seed):[PAR10, numChanges, runStatus, adaptiveCap], ...}
+    #{(inst,seed):[PAR10, numChanges, runStatus, adaptiveCap, sol], ...}
     return {}
 
 
@@ -1062,7 +1062,7 @@ def queueRuns(runs,pts,ptns,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alph
         #Check to see if we need to requeue any target algorithm runs because they have become too stale
         for (inst,seed) in runs[ptns[j]].keys():
             #Check to see if the "trust" we have in this run has decayed below a given threshold.
-            runEqv = decayRate**calChanges(p,runs[ptns[j]][(inst,seed)][1],pbest,prange) 
+            runEqv = decayRate**calChanges(p,runs[ptns[j]][(inst,seed)][1],pbest,prange)
             if(runEqv <= 0.05 and not redisHelper.stillInAliveSet(gpsID,p,pts[j],inst,seed,aliveAndActiveSet,R)):
                 logger.debug(str([p,ptns[j],inst,seed]) + " is too stale (" + str(runEqv) + "), we are re-queueing the run.")
                 toQueue.append([p,pts[j],inst,seed])
@@ -1139,7 +1139,7 @@ def notDone(runs,ptn,inst,seed):
     return (inst,seed) not in runs[ptn].keys()
     
 
-def updateRunResults(gpsID,p,pt,inst,seed,res,runtime,timeSpent,alg,adaptiveCap,oldRunID,prange,paramType,logger,R):
+def updateRunResults(gpsID,p,pt,inst,seed,res,runtime,sol,timeSpent,alg,adaptiveCap,oldRunID,prange,paramType,logger,R):
     #Author: YP
     #Created: 2018-07-08
     #Last Updated: 2019-03-06
@@ -1149,7 +1149,7 @@ def updateRunResults(gpsID,p,pt,inst,seed,res,runtime,timeSpent,alg,adaptiveCap,
     else:
         ptns = prange[p] 
 
-    return redisHelper.addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,alg,adaptiveCap,oldRunID,logger,R)
+    return redisHelper.addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,sol,alg,adaptiveCap,oldRunID,logger,R)
 
 
 def updateBudget(gpsID,timeSpent,R):
@@ -1263,7 +1263,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                     #so that we save time by adjusting our cap, and then when we
                     #are done we multiply the penalty factor back in to reflect
                     #the penalized running time. 
-                    res, runtime, misc, timeSpent, capType, cutoffi, cmd = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,temp,logger)
+                    res, runtime, sol, misc, timeSpent, capType, cutoffi, cmd = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,temp,logger)
                     runtime = runtime*regFactor
                     cutoffi = cutoffi*regFactor
 
@@ -1290,14 +1290,14 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
                 if(runtime == 0 and not cutoffi == 0):
                     logger.debug("The running time was 0, but the cutoff was not.")
-                    logger.debug(str([res,runtime,misc,timeSpent,capType,cutoffi]))
+                    logger.debug(str([res,runtime,sol,misc,timeSpent,capType,cutoffi]))
                     #return
 
                 #If we haven't exhausted the budget with this run
                 if(not (capType == 'Budget Cap' and res == 'BUDGET-TIMEOUT')):
                     #Store the results back in the database
                     logger.debug("Storing the results back in the database.")
-                    curRunID = updateRunResults(gpsID,task['p'],task['pt'],task['inst'],task['seed'],res,runtime,timeSpent,task['alg'],cutoffi,oldRunID,prange,paramType,logger,R)
+                    curRunID = updateRunResults(gpsID,task['p'],task['pt'],task['inst'],task['seed'],res,runtime,sol,timeSpent,task['alg'],cutoffi,oldRunID,prange,paramType,logger,R)
                 else:
                     logger.debug("This run caused us to exceed the budget, so we will discard the results.")
 
@@ -1380,8 +1380,9 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
         res = 'ADAPTIVE-CAP-TIMEOUT'
         runtime = cutoff*10
         timeSpent = 0
+        sol = 0
         misc = capType + ': ' + str(cutoffi) + ' CPU Seconds'
-        return res, runtime, misc, timeSpent, capType, cutoffi, ''
+        return res, runtime, sol, misc, timeSpent, capType, cutoffi, ''
 
     budgetCensor = False
     if(cutoffi + time.time() - budget['startTime'] > budget['wall']):
@@ -1401,12 +1402,13 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
             res = 'BUDGET-TIMEOUT'
             runtime = cutoff*10
             timeSpent = 0
+            sol = 0
             misc = capType + ': ' + str(cutoffi) + ' CPU Seconds'
 
-            return res, runtime, misc, timeSpent, capType, cutoffi, ''
+            return res, runtime, sol, misc, timeSpent, capType, cutoffi, ''
         logger.info("GPS is running out of time; attempting one more target algorithm run using the remaining budget of " + str(cutoffi) + " seconds...")
                     
-    res, runtime, misc, cmd = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSlaveID) + '-' + runID + '-' + p, temp)
+    res, runtime, sol, misc, cmd = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSlaveID) + '-' + runID + '-' + p, temp)
 
     if(res == 'SUCCESS'):
         if(runtime == float('inf')):
@@ -1451,8 +1453,7 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
     
     misc += ' - ' + capType + ': ' + str(cutoffi) + ' CPU Seconds'
 
-    return res, runtime, misc, timeSpent, capType, cutoffi, cmd
-
+    return res, runtime, sol, misc, timeSpent, capType, cutoffi, cmd
   
 
 def bitonic(comp):
@@ -1561,24 +1562,27 @@ def runInstance(logger, wrapper, params, inst, inst_spec, seed, cutoff,
 def readOutputFile(outputFile):
     #Author: Yasha Pushak
     #Created: 2018-04-12
+    #Last updated: 2019-06-25
 
-    #Specify inf in case of error or timeout
+    # Specify inf in case of error or timeout
     runtime = float('inf')
     res = "CRASHED"
     misc = 'The target algorithm failed to produce output in the expected format'
     if not helper.isFile(outputFile):
         misc = 'The target algorithm failed to produce any output'
     else:
-        #Parse theresults from the temp file
+        # Parse the results from the temp file
         with open(outputFile) as f:
             for line in f:
                 if("Result for SMAC:" in line 
                    or "Result for ParamILS:" in line 
-                   or "Result for GPS:" in line):
+                   or "Result for GPS:" in line
+                   or "Result for Configurator:" in line):
                     results = line[line.index(":")+1:].split(",")
-                         
+                           
                     runtime = float(results[1])
-                 
+                    sol = float(results[2])
+             
                     if ("SAT" in results[0] 
                        or "UNSAT" in results[0] 
                        or "SUCCESS" in results[0]):
@@ -1596,7 +1600,7 @@ def readOutputFile(outputFile):
     
     os.system('rm ' + outputFile + ' -f')
 
-    return res, runtime, misc
+    return res, runtime, sol, misc
 
 
 def getLogger(logLocation,verbose,console=True,

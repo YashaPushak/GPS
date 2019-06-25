@@ -422,10 +422,10 @@ def setPoint(gpsID,p,ptn,runs,R):
         R.hmset('runs:' + str(gpsID) + ':' + p + ':' + ptn,runs)
 
 
-def addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R):
+def addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,sol,alg,adaptiveCap,runID,logger,R):
     #Author: YP
     #Created: 2018-07-08
-    #Last updated: 2019-03-06
+    #Last updated: 2019-06-25
 
     task = toTaskString([p,pt,inst,seed])
 
@@ -451,7 +451,7 @@ def addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R)
                     #while the run was in progress. We can just discard this
                     #run.
                     logger.debug("The bracket was updated while a run was in progress."
-                                 "We are discarding this run: " + str([p,pt,inst,seed,res,runtime,alg,adaptiveCap]))
+                                 "We are discarding this run: " + str([p,pt,inst,seed,res,runtime,sol,alg,adaptiveCap]))
                     pipe.delete('task:' + task)
                     break
                 for i in range(0,len(ptns)):
@@ -459,7 +459,7 @@ def addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R)
                         ptn = ptns[i]
                         break
 
-                pipe.hset('runs:' + str(gpsID) + ':' + p + ':' + ptn,(inst,seed),[runtime,alg['params'],res,adaptiveCap])
+                pipe.hset('runs:' + str(gpsID) + ':' + p + ':' + ptn,(inst,seed),[runtime,alg['params'],res,adaptiveCap,sol])
   
                 pipe.delete('task:' + task)
             
