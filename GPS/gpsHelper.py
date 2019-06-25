@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import copy as cp
 
 import helper
 
@@ -91,40 +92,46 @@ def getAdaptiveCapOld(p,runs,ptn,cutoff,pbest,bestStat,numRunsInc,prange,decayRa
 
     return cutoffi
 
-def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,boundMult,logger):
+def getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger):
     #Author: YP
     #Created: 2018-10-04
+    #Last updated: 2019-04-02
     #The new method for calculating the adaptive cap.
     #unlike the old one that was purely incumbent-driven, this one will
     #calculate a pairwise cap based on each other point. Furthermore, 
     #this method is more principled, because it only uses the intersection
-    #of instances for which both points have completed target algorihtm runs.
+    #of instances for which both points have completed target algorithm runs.
     #This way, we're not making poor heuristic cap decisions based on some
-    #points with ompleted runs and others without, and we're not running risk
+    #points with completed runs and others without, and we're not running risk
     #of assigning small caps to instances for which there are no completed
     #runs simply because those instances are harder than most of the others.
 
     smallestCap = cutoff
+    logger.debug("p = " + str(p))
+    logger.debug("runs.keys() = " + str(runs.keys()))
+    logger.debug("boundMult = " + str(boundMult))
 
-    for ptnO in ['a','b','c','d']:
-        if(ptnO == ptn):
-            #We shouldn't calculate a cap for a point based on its own 
-            #performance
-            continue
-        cap = getPairwiseCap(p,runs,inst,seed,ptnO,ptn,cutoff,pbest,prange,decayRate,boundMult,logger)
-        print("Cap from " + ptnO + ": " + str(cap))
-        smallestCap = min(cap,smallestCap)
+    if(not boundMult == False): #If it is not False it will either be "adaptive" or a natural number.
+        for ptnO in runs.keys(): 
+            if(ptnO == ptn):
+                #We shouldn't calculate a cap for a point based on its own 
+                #performance
+                continue
+            cap = getPairwiseCap(p,runs,inst,seed,ptnO,ptn,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger)
+            logger.debug("Cap from " + ptnO + ": " + str(cap))
+            smallestCap = min(cap,smallestCap)
 
-    print("Overall cap: " + str(smallestCap))
+    logger.debug("Overall cap: " + str(smallestCap))
 
     return smallestCap
 
 
 
 
-def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,boundMult,logger):
+def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,minInstances,boundMult,logger):
     #Author: YP
     #Created: October 4th, 2018
+    #Last updated: 2019-04-23
     #Calculates the pairwise adaptive cap between two points
     #using only the intersection of instances for which they
     #both have completed runs. 
@@ -142,13 +149,13 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,bo
         #compared to all previous runs, then any cap we impose
         #here might be too low, and both points would end up
         #being prematurely censored with this cap.
+        logger.debug("The original point has not been run on this instance yet, so we cannot provide an adaptive cap.")
         return cutoff
 
-    runsO = {}
-    runsC = {}
+    ptn = {'Original':ptnO,'Challenger':ptnC}
 
     #Get the intersection of runs they have both performed,
-    #insce anything else would be unfair to use as a comparison
+    #since anything else would be unfair to use as a comparison
     insts = intersection(runs[ptnO].keys(),runs[ptnC].keys())
 
     #In case we are re-running this instance, we don't want to
@@ -157,32 +164,78 @@ def getPairwiseCap(p,runs,instC,seedC,ptnO,ptnC,cutoff,pbest,prange,decayRate,bo
     if((instC,seedC) in insts):
         insts.remove((instC,seedC))
 
-    for (inst,seed) in insts:
-        runsO[(inst,seed)] = runs[ptnO][(inst,seed)]
-        runsC[(inst,seed)] = runs[ptnC][(inst,seed)]
-
-    #The original point also needs to use the instance for which
-    #we are calculating this cap to be included in its calculation.
-    runsO[(instC,seedC)] = runs[ptnO][(instC,seedC)]
     #Calculate their performances and run equivalents.
-    perfO = calPerf(p,runsO,pbest,prange,decayRate)
-    #runEqvsO = calNumRunsEqvs(p,runsO,pbest,prange,decayRate)
-    perfC = calPerf(p,runsC,pbest,prange,decayRate)
-    runEqvsC = calNumRunsEqvs(p,runsC,pbest,prange,decayRate)
+    #Create the arrays that contain the statistics and number of changes
+    Times = {'Original':[],'Challenger':[]}; Changes = {'Original':[],'Challenger':[]};
+    #add each instance-seed pair
+    for inst in insts:
+        #for each point
+        for ptl in ['Original','Challenger']:
+            [PAR10, pbestOld, runStatus, adaptiveCap] = runs[ptn[ptl]][inst]
+            Times[ptl].append(PAR10)
+            Changes[ptl].append(calChanges(p,pbestOld,pbest,prange))
 
-    #print(perfO*runEqvsO)
-    #print(perfC*runEqvsC)
+    #when using weighted sums in a permutation test, for each instance, we 
+    #need to multiple the weights so that the variance in bootstrap samples
+    #isn't artificially inflated by having a small versus a large weight 
+    #for an instance that keep being randomly swapped. The negative effect
+    #of swapping weights (as we originally did) can be demonstrated by the 
+    #simple example in /global/scratch/ypushak/playground/bootstrapTest.py 
+    #Instead of multiplying when the time comes, we just add the changes now.
 
-    if(runEqvsC == 0):
+    summedChanges = [Changes['Original'][i] + Changes['Challenger'][i] for i in range(0,len(Changes['Original']))]
+
+    #Get the performance of the challenger and original point
+    challengerPerf = calPerfDirect(Times['Challenger'],summedChanges,decayRate)
+
+    #For the original point we also need to include the information about the current instance.
+    [PAR10, pbestOld, runStatus, adaptiveCap] = runs[ptn['Original']][(instC,seedC)]
+    Times['Original'].append(PAR10)
+    summedChanges.append(calChanges(p,pbestOld,pbest,prange))
+    originalPerf = calPerfDirect(Times['Original'],summedChanges,decayRate)
+
+    #Remove the last one from consideration because it only applies to the original point
+    runEqvs =  sum(decayRate**np.array(summedChanges[:-1])) 
+
+    logger.debug("Original point performance: " + str(originalPerf))
+    logger.debug("Challenging point performance: " + str(challengerPerf))
+    logger.debug("Run equivalents: " + str(runEqvs))
+     
+
+    if(runEqvs == 0):
         budgetSpent = 0
     else:
-        budgetSpent = runEqvsC*perfC
+        budgetSpent = runEqvs*challengerPerf
+
+    if(boundMult == 'adaptive'):
+        #The parameters a and b, and the parametric function were determined
+        #experimentally using simulated data from theoretically motivated distributions
+        #That is to say, if we assume that we are comparing two parameter values, each
+        #of which results in running times drawn from the same exponential 
+        #distribution, then this formulation estimates a value for the bound multiplier
+        #that provides 99.95% confidence that one parameter value will not exceed the
+        #adaptive cap set by the other parameter value. Of course, the value for the
+        #bound multiplier is a function of the number of target algorithm runs. We 
+        #heuristically use the smaller of the two number of run equivalents as this
+        #number.
+        if(runEqvs == 0):
+            boundMult = float('inf')
+        else: 
+            a = 7.20973934576952
+            b = -0.632746185276387
+            boundMult = max(np.exp(a*runEqvs**b),2) #Take the max with 2 to make sure 
+            #we're not being overly optimistic with this bound due to incorrect 
+            #assumptions about what the algorithm's running time distribution looks like
+
+        logger.debug("Based on the number of run equivalents, we are setting the bound multiplier to be " + str(boundMult))
 
     #We cutoff the challenging point once its performance on
     #the new instance has reached the same performance as
     #the old point multiplied by the boundMult. 
-    budgetRemaining = perfO*(runEqvsC+1)*boundMult - budgetSpent
-    
+    budgetRemaining = originalPerf*(runEqvs+1)*boundMult - budgetSpent
+   
+    logger.debug("Remaining budget for this point: " + str(budgetRemaining))
+
     #We either return the budget the challening point has left,
     #or the original running time cutoff, whatever is smaller.
     #Also ensure that the cap is non-negative.
@@ -204,137 +257,295 @@ def calNumRunsEqvs(p,runs,pbest,prange,decayRate):
     return sum(decayRate**np.array(changes))
 
 
-def updateIncumbent(p,a,b,c,d,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,logger):
+def calCombinedNumRunsEqvs(p,runs1,runc2,pbest,prange,decayRate):
+    #Author: YP
+    #Created: 2019-04-23
+    #Last updated: 2019-04-23
+    #Calculates the number of run equivalents for the two points 
+    #combined. We do this by adding the two changes together for 
+    #each instance, which effectively multiplies together the
+    #run equivalence calculated for each independent run. 
+
+    changes = []
+    for (inst,seed) in runs1.keys():
+        changes.append(calChanges(p,runs1[(inst,seed)][1],pbest,prange) + calChanges(p,runs2[(inst,seed)][1],pbest,prange))
+
+    return sum(decayRate**np.array(changes))
+
+
+
+def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger):
     #Author: YP
     #Created: 2018-05-03
-    #Last updated: 2018-09-21
-    logger.debug("Updating the Incumbent")
+    #Last updated: 2019-03-14
+    #There are several rounds of filters or "tie breakers" that will be used to determine the incumbent:
+    #Filter Round 1:
+        #Admit every challenger with >= minInstance runs
+        #If no challengers remain, return the previous incumbent
+    #Filter Round 2:
+        #Admit every challenger with a (non-strict) superset of the prevInc runs
+        #If no challengers remain, return the previous incumbent
+    #Filter Round 3:
+        #Admit every challenger with statistically sufficient evidence of improved performance compared to the previous incumbent
+        #If no challengers remain, return the previous incumbent
+        #If only one challenger remains, it is the new incumbent
+    #Filter Round 4:
+        #Admit every challenger that is not statistically worse than any of the other challengers
+        #If every challenger is eliminated (e.g., a triangle where a < b < c < a), then skip this filter.
+        #If only one challenger remains, it is the new incumbent
+    #Filter Round 5:
+        #Admit every challenger with performance equal to the best performance among the challengers
+        #If only one challenger remains, it is the new incumbent
+    #Filter Round 6:
+        #Admit every challenger that has been run on the largest number of run equivalents among the challengers
+        #If only one challenger remains, it is the new incumbent
+    #Filter Round 7:
+        #Randomly pick one challenger
+        #Return the remaining challenger as the incumbent.
 
+
+    logger.debug("Checking to see if we can update the incumbent...")
 
     f = {}
-    numRunsEqvs = {}
-    for ptn in ['a','b','c','d']:
+    numRunEqvs = {}
+    for ptn in ptns:
+        #For each candidate, calculate the performance and the number of run equivalents.
         f[ptn] = calPerf(p,runs[ptn],pbest,prange,decayRate)
-        numRunsEqvs[ptn] = calNumRunsEqvs(p,runs[ptn],pbest,prange,decayRate)
+        numRunEqvs[ptn] = calNumRunsEqvs(p,runs[ptn],pbest,prange,decayRate)
 
-    #Sort the points by performance
-    order = sorted(f.keys(),key=lambda k:f[k])
 
-    #Take the configuration with the best running time that
-    #has at most one less runs performed than the configuration
-    #with the most runs. (This is to ensure that a newly added
-    #configuration that has very few new runs isn't falsely chosen
-    #as being the best.)
-    i = 0
-    #This is used as a backup method for choosing the incumbent. See the 
-    #comments and code at the end of the loop for an explaination.
-    candsRnd3 = []
-    loopCount = 0
-    while True:
-        loopCount += 1
-        if(loopCount >= loopLimit):
-            logger.debug("INFINITE LOOP in updateIncumbent?")
-        #Update the best-known value
-        if(order[i] == 'a'):
-            inc = a
-        elif(order[i] == 'b'):
-            inc = b
-        elif(order[i] == 'c'):
-            inc = c
-        else:
-            inc = d
-           
-        #Make sure that the new incumbent has been run on a superset of the
-        #instances on which the previous incumbent was run. 
-        superSet = True
-        for (inst,seed) in prevIncInsts:
-            if( (inst,seed) not in runs[order[i]].keys()):
-                superSet = False
+    #We will use several tie breakers to pick the incumbent. Initially we do know who what value is the winner.
+    foundInc = False
+
+    prevIncPt = pbest[p]
+    foundMatch = False
+    for i in range(0,len(pts)):
+        if(prevIncPt == pts[i]):
+            prevIncPtn = ptns[i]
+            foundMatch = True
+            break
+    if(not foundMatch and type(prevIncPt) in [float, np.float64]):
+        #This can happen due to floating point errors
+        #When it does, we just assume that the most similar parameter is the same one.
+        logger.debug("We were unable to find a direct match for the incumbent " + str(prevIncPt) + " of parameter " + str(p) + " in the pts " + str(pts)) 
+        d = [abs(pts[i] - prevIncPt) for i in range(0,len(pts))]
+        for i in range(0,len(pts)):
+            if(d[i] == min(d)):
+                prevIncPtn = ptns[i]
+                foundMatch = True
+                if(d[i] > 1e-6):
+                    logger.warning("We were unable to find a parameter value in the current bracket that matched the previous incumbent's value. We are assuming that this becuase of a floating point error; however, the difference that we had to accept to get a match was " + str(d[i]) + ", which is greater than our tolerance of " + str(1e-6))
+                else:
+                    logger.debug("We were unable to find a parameter value in the current bracket that exactly matched the previous incumbent's value. We are assuming that this is because of a floating point error and accepting a match with a difference of " + str(d[i]))
                 break
-        if(superSet):
-            #We have found the incumbent, we can stop.
-            break    
+    if(not foundMatch):
+        logger.debug("This should not have happened. We were unable to find a match for the previous incumbent value.")
+        logger.debug("Parameter: " + str(p))
+        logger.debug("prevIncPt: " + str(prevIncPt))
+        logger.debug("pts: " + str(pts))
+        logger.debug("type(prevIncPt): " + str(type(prevIncPt)))
+            
 
-        #Alternate stopping condition for choosing the incumbent
-        if(order[i] in candsRnd3):
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 1:
+        #Admit every challenger with >= minInstance runs
+    logger.debug("Filter Round 1: Admit every challenger with >= minInstance runs")
+    logger.debug("Starting off with challengers: " + str(ptns))
+
+    curCands = []
+    for ptn in ptns:
+        if(numRunEqvs[ptn] >= minInstances):
+            curCands.append(ptn)
+    
+    #Check to see if we are done.
+    if(len(curCands) == 0):
+        #None of the points have at least minInstances run equivalents.
+        #So we return the previous incumbent.
+        incPtn = prevIncPtn
+        foundInc = True
+        logger.debug("None of the challengers survived, so we are returning the previous incumbent.") 
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 2:
+        #Admit every challenger with a (non-strict) superset of the prevInc runs
+
+    if(not foundInc):
+        logger.debug("Filter Round 2: Admit every challenger with a (non-strict) superset of the prevInc runs")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        for cand in prevCands:
+            superSet = True
+            for (inst,seed) in prevIncInsts:
+                if((inst,seed) not in runs[cand].keys()):
+                    superSet = False
+                    break
+            if(superSet):
+                curCands.append(cand)
+
+        #Check to see if we are done.
+        if(len(curCands) == 0 or (len(curCands) == 1 and curCands[0] == prevIncPtn)):
+            #None of the points have been run on a superset of the previous incumbent runs
+            #So we return the previous incumbent.
+            incPtn = prevIncPtn
+            foundInc = True
+            logger.debug("None of the challengers survived, so we are returning the previous incumbent.") 
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 3:
+        #Admit every challenger with statistically sufficient evidence of improved performance compared to the previous incumbent
+
+    if(not foundInc):
+        logger.debug("Filter Round 3: Admit every challenger with statistically sufficient evidence of improved performance compared to the previous incumbent")
+        logger.debug("Starting off with challengers: " + str(curCands))
+
+        comp = permTestSep(p,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger)
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        for cand in prevCands:
+            if(comp[(cand,prevIncPtn)] < 0): #Small is good
+                curCands.append(cand)
+
+        #Check to see if we are done.
+        if(len(curCands) == 0):
+            #None of the points are statistically better than the previous incumbent
+            #So we return the previous incumbent
+            incPtn = prevIncPtn
+            foundInc = True
+            logger.debug("None of the challengers survived, so we are returning the previous incumbent.")  
+        elif(len(curCands) == 1):
+            #We have found the new incumbent
+            incPtn = curCands[0]
+            foundInc = True
+
+        logger.debug("Results from this round: " + str(curCands))
+        #logger.warning("Reseting to old candidates")
+        #foundInc = False
+        #curCands = prevCands
+       
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 4:
+        #Admit every challenger that is not statistically worse than any of the other challengers
+        #If every challenger is eliminated (e.g., a triangle where a < b < c < a), then skip this filter.
+
+    if(not foundInc):
+        logger.debug("Filter Round 4: Admit every challenger that is not statistically worse than any of the other challengers")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        for cand1 in prevCands: 
+            best = True
+            for cand2 in prevCands:
+                if(comp[(cand1,cand2)] > 0): #Small is good
+                    best = False
+            if(best):
+                curCands.append(cand1)
+
+        #Check to see if we are done.
+        if(len(curCands) == 0):
+            #There is a cyclic performance comparision. This might happen if each point has been run on different sets of instances.
+            #Therefor will not eliminate any of the points. 
+            curCands = prevCands
+            logger.debug("Every challenger was eliminated (e.g., because of a triangle where a < b < c < a), so we are skipping this filter.")
+        elif(len(curCands) == 1):
+            #We have found the incumbent
+            incPtn = curCands[0]
+            foundInc = True
+
+        logger.debug("Results from this round: " + str(curCands))
+        #logger.warning("Reseting to old candidates")
+        #foundInc = False
+        #curCands = prevCands
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 5:
+        #Admit every challenger with performance equal to the best performance among the challengers
+
+    if(not foundInc):
+        logger.debug("Filter Round 5: Admit every challenger with performance equal to the best performance among the challengers")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        #Find the best performance value
+        best = float('inf')
+        for cand in prevCands:
+            best = min(best,f[cand])
+        for cand in prevCands:
+            if(f[cand] == best):
+                curCands.append(cand)
+
+        #Check to see if we are done.
+        if(len(curCands) == 1):
+            #We have found the incumbent
+            incPtn = curCands[0]
+            foundInc = True
+
+        logger.debug("Results from this round: " + str(curCands))
+        #logger.warning("Reseting to old candidates")
+        #foundInc = False
+        #curCands = prevCands
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 6:
+        #Admit every challenger that has been run on the largest number of run equivalents among the challengers
+
+    if(not foundInc):
+        logger.debug("Filter Round 6: Admit every challenger that has been run on the largest number of run equivalents among the challengers")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        prevCands = cp.deepcopy(curCands)
+        curCands = []
+        #Find the one with the most run equivalents
+        best = 0
+        for cand in prevCands:
+            best = max(best,numRunEqvs[cand])
+        for cand in prevCands:
+            if(numRunEqvs[cand] == best):
+                curCands.append(cand)
+
+        #Check to see if we are done.
+        if(len(curCands) == 1):
+            #We have found the incumbent
+            incPtn = curCands[0]
+            foundInc = True
+
+        logger.debug("Results from this round: " + str(curCands))
+        #logger.warning("Reseting to old candidates")
+        #foundInc = False
+        #curCands = prevCands
+
+    #--------------------------------------------------------------------------------------------
+    #Filter Round 7:
+        #Randomly pick one challenger
+
+    if(not foundInc):
+        logger.debug("Filter Round 7: Randomly pick one challenger")
+        logger.debug("Starting off with challengers: " + str(curCands))
+        incPtn = random.choice(curCands)
+        foundInc = True
+
+    #--------------------------------------------------------------------------------------------
+    #Return the remaining challenger as the incumbent.
+
+    for i in range(0,len(ptns)):
+        if(incPtn == ptns[i]):
+            incPt = pts[i]
             break
 
-        i += 1
-        if(i >= 4):
-            logger.debug("None of the current points have been run on a superset of the instances on which the last incumbent was run.")
-            logger.debug("This can happen in rare cases where the bracket update causes the incumbent to be discarded.")
-            logger.debug("This means we must use a special procedure to choose a new incumbent.")
-            logger.debug("We start by performing a permutation test to identify the relative ordering of all of the candidates.")
-            #None of the current points have been run on as many instances as
-            #the previous incumbent. This can happen when the incumbent is
-            #removed from the bracket (which can occur if the bracket appears
-            #to be non-uni-modal).
-            comp = permTestSep(p,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger)
-            #We pick the new incumbent to be any of the statistically best
-            #performance (according to the permutation test), that have been
-            #run on at least minInstances instances.
-            logger.debug(str(comp))
-            logger.debug("We only let a candidate proceed to the next round if it has been run on at least " + str(minInstances) + " equivalent instances.")
-            candidates = ['a','b','c','d']
-            candsRnd1 = []
-            for cand in candidates:
-                if(numRunsEqvs[cand] >= minInstances):
-                    candsRnd1.append(cand)
-            if(len(candsRnd1) == 0):
-                #Nothing has finished running minInstances runs. So we 
-                #will just have to accept all of them
-                logger.debug("Every candidate was just eliminated, so we will accept all of them.")
-                candsRnd1 = candidates
-            logger.debug("The remaining candidates are: " + str(candsRnd1))
-            logger.debug("We only let a candidate proceed to the next round if it is not dominated by any other candidates.")
-            #Next check to find which of the remaining candidates are
-            #statistically best.
-            candsRnd2 = []
-            for cand1 in candsRnd1: 
-                best = True
-                for cand2 in candsRnd1:
-                    if(comp[(cand1,cand2)] > 0):
-                        best = False
-                if(best):
-                    candsRnd2.append(cand1)
-            logger.debug("The remaining candidates are " + str(candsRnd2))
-            logger.debug("Finally, we only want to take the candidates that have been run on the most instances.")
-            #Anything that survived candsRnd2 is allowed to be the incumbent
-            #Next, we take only the candidates which have solved the largest
-            #number of instances that are statistically equal to each other.
-            #We do this to avoid a bias towards selecting candidates that have
-            #been run on only a small number of easy instances (which is likely
-            #to occur since easy instances will be completed first). This way
-            #we will pick the candidate that is statistically indistinguishable
-            #From the set of best candidates, and the one for which we have the
-            #most data about its performance, so that it is least likely to be
-            #falsely included in the set of best candidates.
-            candsRnd3 = []
-            maxRunsRnd3 = 0
-            for cand2 in candsRnd2:
-                if(maxRunsRnd3 < numRunsEqvs[cand2]):
-                    maxRunsRnd3 = numRunsEqvs[cand2]
-            for cand2 in candsRnd2:
-                if(numRunsEqvs[cand2] == maxRunsRnd3):
-                    candsRnd3.append(cand2)
-            logger.debug("The remaining candidates are " + str(candsRnd3))
-            logger.debug("Finally, if there are multiple remaining candidates, we take the one with the best performance.")
-            #If there are any remaining ties:.
-            #We will take the one that has the smallest running time. 
-            #Go back to the main search loop
-            i = 0
+    logger.debug("The winner is " + incPtn + " or " + str(incPt) + "!")
 
-    logger.debug("The winner is " + order[i] + " or " + str(inc))
+    incNumRuns = numRunEqvs[incPtn]
+    incTime = f[incPtn]
+
+    logger.debug("It is has been run on " + str(incNumRuns) + " run equivalents and has an estimated PAR10 of " + str(incTime))
+
+    if(incPt == prevIncPt):
+        #We did not update the incumbent. So we will not update the runs that need to have been performed by the next incumbent
+        incInsts = prevIncInsts
+    else:
+        incInsts = runs[incPtn].keys()
 
 
-    incNumRuns = numRunsEqvs[order[i]]
-    incTime = f[order[i]]
-    incInsts = runs[order[i]].keys()
-
-    logger.debug("It is has been run on " + str(incNumRuns) + " run equivalents, and has a PAR10 of " + str(incTime))
-
-    return inc, order[i], incNumRuns, incTime, incInsts
-
+    return incPt, incPtn, incNumRuns, incTime, incInsts
 
 
 
@@ -348,7 +559,7 @@ def calPerf(p,runs,pbest,prange,decayRate):
     for (inst,seed) in runs.keys():
         [PAR10, pbestOld, runStatus, adaptiveCap] = runs[(inst,seed)]
 
-        if(adaptiveCap == 0):
+        if(runStatus == 'ADAPTIVE-CAP-TIMEOUT'):
             #One of the runs was censored by an adaptive cap, so we are now
             #treating this configuration as being equal to 10 times the
             #original PAR10
@@ -385,6 +596,7 @@ def calPerfDirect(times,changes,decayRate):
 def calChanges(curP,alg0,alg1,prange):
     #Author: YP
     #Created: 2018-09-21
+    #Last updated: 2019-03-06
     #Calcualtes the cumulative changes between the two configurations in alg0 and alg1
 
     #Take the union of the parameters for the two algorithms
@@ -400,9 +612,11 @@ def calChanges(curP,alg0,alg1,prange):
         elif(p in alg0.keys() and p in alg1.keys()):
             changes.append(calChange(alg0[p],alg1[p],prange[p]))
         else:
-            #One of these parameters doesn't even exist in the other configuration, so we
-            #count it as being a full change.
-            changes.append(1) #TODO: Review this decision when you actually handle categorical parameters
+            #One of these parameters doesn't exist in the other configuration, so we
+            #count it as being no change, because this can only happen when they share
+            #a parent parameter whose value is different, therefore we alre already 
+            #counting the change between the configurations via this difference.
+            changes.append(0)
 
     #Take the Euclidean distance between the two configurations.
     return sum(np.array(changes)**2)**0.5
@@ -440,50 +654,38 @@ def getParamString(params):
 
 
 
-def permTestSep(parameter,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,logger):
+def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger):
     #Author: YP
     #Created: 2018-04-11
     #Last updated: 2018-05-03
+    #Conforms to the cat format. 
     #Defines the relative ordering between the points by assessing
     #statistical significance with a permutation test.
 
+    logger.debug("~~~Starting permutation test for " + str(parameter) + "~~~")
 
-    #Get the performance estimate for each point
-    f = {}
-    for pt in ['a','b','c','d']:
-        f[pt] = calPerf(parameter,runs[pt],pbest,prange,decayRate)
-
-
-    ptn = ['a','b','c','d']
     eliminated = []
-    for j in range(0,4):
-        if(not neverCapped(runs,ptn[j],cutoff)):
+    for j in range(0,len(ptns)):
+        if(not neverCapped(runs,ptns[j],cutoff)):
             #This value has exceeded the bound multiplier times the incumbent's performance. So we are not going to perform permutation tests for it, instead we will assume it, and any others like it, are all equally larger than all other points.
-            eliminated.append(ptn[j])
-
-    alpha /= 6 #Bonferroni multiple test correction
+            eliminated.append(ptns[j])
 
     #comp will accept tuples and return -1,0, or 1, depending on whether or not the tuples contain values that are separable by
     #the permutation test. The syntax is chosen such that "comp[(p0,p1)] <operator> 0" translates naturally to  "p0 <operator> p1"
     comp = {}
 
-    for p in [('a','b'),('a','c'),('a','d'),('b','c'),('b','d'),('c','d'),('a','a'),('b','b'),('c','c'),('d','d')]:
-        if(f[p[0]] < f[p[1]]):
-            low = 0
-            hi = 1
-        else:
-            low = 1
-            hi = 0
+    perms = []
+    for i in range(0,len(ptns)):
+        for j in range(i,len(ptns)):
+            perms.append((ptns[i],ptns[j]))
 
+    toBeCompared = []
+
+    for p in perms:
         #logger.debug("*"*10 + ' ' + p[low] + ' <? ' + p[hi] + ' ' + '*'*60)
-        if(not enoughData(runs,pbest,prange,parameter,p[0],p[1],decayRate,minInstances)):            
-            #We don't have enough data collected to perform a permutation test yet,
-            #so we assume that they are the same.
-            comp[(p[0],p[1])] = 0
-            comp[(p[1],p[0])] = 0
-            #Next we check to see if either or both of p0 and p1 have been eliminated because they performed too much worse than the incumbent.
-            #We heuristicaly assume all such points are equally bad, and that they are all worse than any point not eliminated in this way.
-        elif(p[0] in eliminated and p[1] in eliminated):
+        #Next we check to see if either or both of p0 and p1 have been eliminated because they performed too much worse than the incumbent.
+        #We heuristicaly assume all such points are equally bad, and that they are all worse than any point not eliminated in this way.
+        if(p[0] in eliminated and p[1] in eliminated):
             comp[(p[0],p[1])] = 0
             comp[(p[1],p[0])] = 0
         elif(p[0] in eliminated):
@@ -495,20 +697,37 @@ def permTestSep(parameter,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,
         elif(p[0] == p[1]):
             #everything is equal to itself
             comp[(p[0],p[1])] = 0
+        elif(not enoughData(runs,pbest,prange,parameter,p[0],p[1],decayRate,minInstances)):            
+            #We don't have enough data collected to perform a permutation test yet,
+            #so we assume that they are the same.
+            comp[(p[0],p[1])] = 0
+            comp[(p[1],p[0])] = 0
         else:
+            #Add this pair to a queue to be compared later. (We need to count the number of pairs being compared so that we can correctly do multiple test correction.
+            toBeCompared.append(p)
 
+    logger.debug("Only these pairs have enough data to be compared with the permutation test: " + str(toBeCompared))
+
+    if(len(toBeCompared) > 0):
+        if(multipleTestCorrection):
+            alphaBC = alpha/len(toBeCompared)
+            logger.debug("Using Bonferroni multiple test correction. Adjusting alpha from " + str(alpha) + " to " + str(alphaBC))
+        else:
+            alphaBC = alpha
+   
+        for p in toBeCompared:
             #Get the instance-seed pairs for which at least one of each point has ?a completed run.
             #We will use the union for the test.
             #insts = runs[p[low]].keys()
             #insts.extend(runs[p[hi]].keys())
             #insts = list(set(insts))
-            insts = intersection(runs[p[low]].keys(),runs[p[hi]].keys())
+            insts = intersection(runs[p[0]].keys(),runs[p[1]].keys())
             #Create the arrays that contain the statistics and number of changes
-            Times = {}; Changes = {};
-            Times[low] = []; Times[hi] = []; Changes[low] = []; Changes[hi] = []            #add each instance-seed pair
+            Times = [[],[]]; Changes = [[],[]];
+            #add each instance-seed pair
             for inst in insts:
                 #for each point
-                for ptl in [low,hi]:
+                for ptl in [0,1]:
                     #If the entry exists, add its information. Otherwise add sentinel values
                     if(inst in runs[p[ptl]].keys()):
                         [PAR10, pbestOld, runStatus, adaptiveCap] = runs[p[ptl]][inst]
@@ -516,10 +735,30 @@ def permTestSep(parameter,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,
                         Changes[ptl].append(calChanges(parameter,pbestOld,pbest,prange))
                     else:
                         Times[ptl].append(-1)
-                        Changes[ptl].append(float('inf')) #An infinite number of changes will cause the value to go to zero for any non-zero decay rate.
+                        Changes[ptl].append(float('inf')) #An infinite number of changes will cause the value to go to zero for any decay rate less than 1.
+
+            #when using weighted sums in a permutation test, for each instance, we 
+            #need to multiple the weights so that the variance in bootstrap samples
+            #isn't artificially inflated by having a small versus a large weight 
+            #for an instance that keep being randomly swapped. The negative effect
+            #of swapping weights (as we originally did) can be demonstrated by the 
+            #simple example in /global/scratch/ypushak/playground/bootstrapTest.py 
+            #Instead of multiplying when the time comes, we just add the changes now.
+
+            summedChanges = [Changes[0][i] + Changes[1][i] for i in range(0,len(Changes[0]))]
+
+            firstPerf = calPerfDirect(Times[0],summedChanges,decayRate)
+            secondPerf = calPerfDirect(Times[1],summedChanges,decayRate)
+
+            if(firstPerf <= secondPerf):
+                low = 0
+                hi = 1
+            else:
+                low = 1
+                hi = 0
 
             #Perform the permutation test
-            if(permutationTest(Times[low],Times[hi],Changes[low],Changes[hi],alpha,1000,decayRate,minInstances,logger)):
+            if(permutationTest(Times[low],Times[hi],summedChanges,alphaBC,1000,decayRate,minInstances,logger)):
                 #The difference is statistically significant
                 comp[(p[low],p[hi])] = -1
                 comp[(p[hi],p[low])] = 1
@@ -528,35 +767,26 @@ def permTestSep(parameter,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,
                 comp[(p[low],p[hi])] = 0
                 comp[(p[hi],p[low])] = 0
 
+
+    logger.debug("~~~Ending permutation test for " + str(parameter) + "~~~")
+
     return comp
 
 
-def permutationTest(incData,chaData,incChanges,chaChanges,alpha,numSamples,decayRate,minInstances,logger):
+def permutationTest(incData,chaData,changes,alpha,numSamples,decayRate,minInstances,logger):
+    #Author: YP
+    #Created: 2018-04-11
+    #Last updated: 2019-04-24
     if(not len(incData) == len(chaData)):
         raise ValueError("Permutation test can not be applied -- the lengths of the challenger and incumbent data are not the same.")
-
 
     if(len(incData) < minInstances or len(chaData) < minInstances):
         return False
 
-    #when using weighted sums in a permutation test, for each instance, we 
-    #need to multiple the weights so that the variance in bootstrap samples
-    #isn't artificially inflated by having a small versus a large weight 
-    #for an instance that keep being randomly swapped. The negative effect
-    #of swapping weights (as we originally did) can be demonstrated by the 
-    #simple example in /global/scratch/ypushak/playground/bootstrapTest.py 
-    #Instead of multiplying when the time comes (since the code below still
-    #swaps the weights as we originally did, we are using a bit of a hack here
-    #that just adds the changes together and then sets both points to have the
-    #same changes, which works out to the same thing in the end. 
-    for i in range(0,len(incChanges)):
-        incChanges[i] = incChanges[i] + chaChanges[i]
-        chaChanges[i] = incChanges[i]
-
     logger.debug("Permutation Test:")
 
-    incPerf = calPerfDirect(incData,incChanges,decayRate)
-    chaPerf = calPerfDirect(chaData,chaChanges,decayRate)
+    incPerf = calPerfDirect(incData,changes,decayRate)
+    chaPerf = calPerfDirect(chaData,changes,decayRate)
     if(incPerf == float('inf') or chaPerf == float('inf')):
         observedRatio = 1 #We don't know anything about one of the two, so we assume they are identical
     else:
@@ -564,41 +794,50 @@ def permutationTest(incData,chaData,incChanges,chaChanges,alpha,numSamples,decay
 
     logger.debug("Observed ratio: " + str(observedRatio))
 
-    ratios = []
 
-    for i in range(0,numSamples):
-        cha = []
-        inc = []
-        chaCh = []
-        incCh = []
-        for m in range(0,len(incData)):
-            if(random.choice([True,False])):
-                inc.append(incData[m])
-                cha.append(chaData[m])
-                incCh.append(incChanges[m])
-                chaCh.append(chaChanges[m])
-            else:
-                inc.append(chaData[m])
-                cha.append(incData[m])
-                incCh.append(chaChanges[m])
-                chaCh.append(incChanges[m])
+    data = np.array([incData,chaData])
+    n = len(incData)
+    #Generate the indicies used to select the randomly chosen values for the "incumbent" for each permutated sample
+    sampleInds = [np.random.randint(0,2,n) for i in range(0,numSamples)]
+    #Extract all the data to form the "incumbent" samples
+    sIncData = [data[inds,range(0,n)] for inds in sampleInds]
+    #Extra all of the data to form the "challenger" samples, note that we us 1+-1*i to flip the indicies (which is
+    #how we swap data points, because 0 -> 1 and 1 -> 0)
+    sChaData = [data[1 + -1*inds,range(0,n)] for inds in sampleInds]
+    #Calculate the peformances of each sample
+    incPerfs = np.apply_along_axis(lambda d: calPerfDirect(d,changes,decayRate),1,sIncData)
+    chaPerfs = np.apply_along_axis(lambda d: calPerfDirect(d,changes,decayRate),1,sChaData)
+    #Calculate the ratios of each sample
+    ratios = incPerfs/chaPerfs
 
-        incPerf = calPerfDirect(inc,incCh,decayRate)
-        chaPerf = calPerfDirect(cha,chaCh,decayRate)
-        if(incPerf == float('inf') or chaPerf == float('inf')):
-            rat = 1 #We don't know anything about one of the two, so we assume they are identical.
-        elif(incPerf == 0 or chaPerf == 0):
-           print("incPerf: " + str(incPerf))
-           print("chaPerf: " + str(chaPerf))
-           print("inc: " + str(inc))
-           print("cha: " + str(cha))
-           print("incCh: " + str(incCh))
-           print("chaCh: " + str(chaCh))
-           raise ValueError("Either Inc or Cha had a 0 for it's performance value.")
-        else:
-           rat = incPerf/chaPerf
+    #OR you can do the same thing the slow (but more readable) way: 
+    #ratios = []
+    #for i in range(0,numSamples):
+    #    cha = []
+    #    inc = []
+    #    for m in range(0,len(incData)):
+    #        if(random.choice([True,False])):
+    #            inc.append(incData[m])
+    #            cha.append(chaData[m])
+    #        else:
+    #            inc.append(chaData[m])
+    #            cha.append(incData[m])
 
-        ratios.append(rat)
+    #    incPerf = calPerfDirect(inc,changes,decayRate)
+    #    chaPerf = calPerfDirect(cha,changes,decayRate)
+    #    if(incPerf == float('inf') or chaPerf == float('inf')):
+    #        rat = 1 #We don't know anything about one of the two, so we assume they are identical.
+    #    elif(incPerf == 0 or chaPerf == 0):
+    #       print("incPerf: " + str(incPerf))
+    #       print("chaPerf: " + str(chaPerf))
+    #       print("inc: " + str(inc))
+    #       print("cha: " + str(cha))
+    #       print("changes: " + str(changes))
+    #       raise ValueError("Either Inc or Cha had a 0 for it's performance value.")
+    #    else:
+    #       rat = incPerf/chaPerf
+
+    #    ratios.append(rat)
 
     ratios = sorted(ratios)
 
