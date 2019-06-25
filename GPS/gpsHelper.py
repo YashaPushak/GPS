@@ -475,7 +475,7 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
 def calPerf(p,runs,pbest,prange,decayRate,runObj):
     #Author: YP
     #Created: 2018-07-05
-    #Last updated: 2019-06-28
+    #Last updated: 2020-07-16
     #A wrapper for calPerf that extracts the times and changes as arrays from the new run format
 
     times = []
@@ -584,7 +584,7 @@ def getParamString(params):
 def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,runObj,logger):
     #Author: YP
     #Created: 2018-04-11
-    #Last updated: 2019-06-28
+    #Last updated: 2020-07-16
     #Conforms to the cat format. 
     #Defines the relative ordering between the points by assessing
     #statistical significance with a permutation test.
