@@ -378,3 +378,17 @@ def copySettings(scenario,oldPhase,newPhase,changes=[]):
     #Copy back over the original.
     os.system('mv ' + scenario + '/configurations.tmp ' + scenario + '/configurations.txt')    
 
+
+def isClose(a, b, rel_tol=1e-9, abs_tol=1e-6):
+    try:
+        a = float(a)
+    except:
+        pass
+    try:
+        b = float(b)
+    except:
+        pass
+    if type(a) is float and type(b) is float:
+        return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
+    else:
+        return a == b

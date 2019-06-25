@@ -178,7 +178,7 @@ def reparameterizePCS(pcsFile):
         child = pcs.getAttr(c,'child')
         print("'" + operator + "'")
         if(operator == 'in'):
-            print("Working on this one")
+            #print("Working on this one")
             #Remove the old, single version of the child and conditional
             pcs.doc['content'].remove(pcs.getAttr(child,'id'))
             pcs.doc['content'].remove(pcs.getAttr(c,'id'))

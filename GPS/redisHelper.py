@@ -193,7 +193,7 @@ def getAllAlive(gpsID,p,pts,ptns,logger,R):
 
     logger.debug("Checking each key to see if it is a task.")
     for k in allKeys:
-        logger.debug("Checking key: " + k)
+        #logger.debug("Checking key: " + k)
         if('task:' == k[:5]):
             alive.add(toTaskString(k[5:]))
             aliveAndActive.add(toTaskString(k[5:]))
