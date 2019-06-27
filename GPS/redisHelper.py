@@ -294,6 +294,7 @@ def updateBudget(gpsID,budgetIncrs,R):
                 pipe.watch('budgetState:' + str(gpsID))
 
                 budget = getBudget(gpsID,pipe)
+                #print(budget)
 
                 pipe.multi()
 
