@@ -193,10 +193,10 @@ def calCombinedNumRunsEqvs(p,runs1,runc2,pbest,prange,decayRate):
 
 
 
-def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger):
+def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,runObj,logger):
     #Author: YP
     #Created: 2018-05-03
-    #Last updated: 2019-03-14
+    #Last updated: 2019-06-28
     #There are several rounds of filters or "tie breakers" that will be used to determine the incumbent:
     #Filter Round 1:
         #Admit every challenger with >= minInstance runs
@@ -229,7 +229,7 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
     numRunEqvs = {}
     for ptn in ptns:
         #For each candidate, calculate the performance and the number of run equivalents.
-        f[ptn] = calPerf(p,runs[ptn],pbest,prange,decayRate)
+        f[ptn] = calPerf(p,runs[ptn],pbest,prange,decayRate,runObj)
         numRunEqvs[ptn] = calNumRunsEqvs(p,runs[ptn],pbest,prange,decayRate)
 
 
@@ -318,7 +318,7 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
         logger.debug("Filter Round 3: Admit every challenger with statistically sufficient evidence of improved performance compared to the previous incumbent")
         logger.debug("Starting off with challengers: " + str(curCands))
 
-        comp = permTestSep(p,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger)
+        comp = permTestSep(p,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,runObj,logger)
         prevCands = cp.deepcopy(curCands)
         curCands = []
         for cand in prevCands:
@@ -455,7 +455,11 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
     incNumRuns = numRunEqvs[incPtn]
     incTime = f[incPtn]
 
-    logger.debug("It is has been run on " + str(incNumRuns) + " run equivalents and has an estimated PAR10 of " + str(incTime))
+    if(runObj == 'runtime'):
+        score = 'PAR10'
+    else:
+        score = 'mean solution quality'
+    logger.debug("It is has been run on " + str(incNumRuns) + " run equivalents and has an estimated " + score + " of " + str(incTime))
 
     if(incPt == prevIncPt):
         #We did not update the incumbent. So we will not update the runs that need to have been performed by the next incumbent
@@ -468,10 +472,10 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
 
 
 
-def calPerf(p,runs,pbest,prange,decayRate):
+def calPerf(p,runs,pbest,prange,decayRate,runObj):
     #Author: YP
     #Created: 2018-07-05
-    #Last updated: 2019-06-25
+    #Last updated: 2019-06-28
     #A wrapper for calPerf that extracts the times and changes as arrays from the new run format
 
     times = []
@@ -485,7 +489,10 @@ def calPerf(p,runs,pbest,prange,decayRate):
             #original PAR10
             return PAR10
 
-        times.append(PAR10)
+        if(runObj == 'runtime'):
+            times.append(PAR10)
+        else:
+            times.append(sol)
         changes.append(calChanges(p,pbestOld,pbest,prange))
 
     return calPerfDirect(times,changes,decayRate)
@@ -574,10 +581,10 @@ def getParamString(params):
 
 
 
-def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger):
+def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,runObj,logger):
     #Author: YP
     #Created: 2018-04-11
-    #Last updated: 2019-06-25
+    #Last updated: 2019-06-28
     #Conforms to the cat format. 
     #Defines the relative ordering between the points by assessing
     #statistical significance with a permutation test.
@@ -636,7 +643,7 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
             alphaBC = alpha
    
         for p in toBeCompared:
-            #Get the instance-seed pairs for which at least one of each point has ?a completed run.
+            #Get the instance-seed pairs for which at least one of each point has a completed run.
             #We will use the union for the test.
             #insts = runs[p[low]].keys()
             #insts.extend(runs[p[hi]].keys())
@@ -651,7 +658,10 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
                     #If the entry exists, add its information. Otherwise add sentinel values
                     if(inst in runs[p[ptl]].keys()):
                         [PAR10, pbestOld, runStatus, adaptiveCap, sol] = runs[p[ptl]][inst]
-                        Times[ptl].append(PAR10)
+                        if(runObj == 'runtime'):
+                            Times[ptl].append(PAR10)
+                        else:
+                            Times[ptl].append(sol)
                         Changes[ptl].append(calChanges(parameter,pbestOld,pbest,prange))
                     else:
                         Times[ptl].append(-1)
