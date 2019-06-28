@@ -832,3 +832,4 @@ def enoughData(runs,pbest,prange,parameter,p0,p1,decayRate,minInstances):
 
 def intersection(a, b):
     return list(set(a) & set(b))
+
