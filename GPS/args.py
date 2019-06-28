@@ -101,7 +101,15 @@ class ArgumentParser:
                         'is set to the same value, as this does not control for random background environmental '
                         'noise that can affect the running times and order in which GPS receives target '
                         'algorithm run updates.',
-                'type': _validate(int, 'The seed must be a positive integer or -1', lambda x: int(x) >= -1)}
+                'type': _validate(int, 'The seed must be a positive integer or -1', lambda x: int(x) >= -1)},
+            ('--run-obj', '--run-objective'): {
+                'help': 'This is the objective that GPS is attempting to '
+                        'minimize. Can be \'RUNTIME\' or \'QUALITY\' to '
+                        'minimize the target algorithm\'s running time or '
+                        'solution quality, respectively. If \'RUNTIME\', '
+                        'GPS will minimize the PAR10 of the running times.',
+                'type': _validate(str, 'The run objective must be \'RUNTIME\' or \'QUALITY\'', 
+                                  lambda x: x.lower() in ['runtime', 'quality'])}
         }
         
         self.gps_parameters = {

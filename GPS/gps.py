@@ -93,7 +93,6 @@ def gps(arguments, gpsID):
     """gps
 
     This is the main function for running the master process of GPS.
-
     Parameters
     ----------
     arguments : dict
@@ -121,6 +120,7 @@ def gps(arguments, gpsID):
     pcsFile = arguments['pcs_file']
     insts = parseInstances(arguments['instance_file'])
     wrapper = arguments['algo']
+    runObj = arguments['run_obj'].lower()
     cutoff = arguments['algo_cutoff_time'],
     runBudget = arguments['runcount_limit']
     wallBudget = arguments['wallclock_limit']
@@ -147,6 +147,11 @@ def gps(arguments, gpsID):
     # Set a variable with the run ID for the workers to watch. They will terminate
     # if this number changes.
     redisHelper.setRunID(gpsID, gpsID, R)
+
+    if(runObj == 'runtime'):
+        score = 'PAR10'
+    else:
+        score = 'mean solution quality'
 
     logger = getLogger(logLocation + '/gps.log', verbose, console=True)
     incumbent_logger = getLogger(logLocation + '/traj.csv', verbose=1, console=False,
@@ -253,6 +258,11 @@ def gps(arguments, gpsID):
 
         prevIncInsts = {} #newParamDict(params,[(insts[0],firstSeed)])
 
+        if(runObj == 'runtime'):
+            defaultScore = cutoff*10
+        else:
+            defaultScore = sys.float_info.max
+
         a = {}
         b = {}
         c = {}
@@ -266,10 +276,12 @@ def gps(arguments, gpsID):
                     a[p],b[p],c[p],d[p] = rnd(a[p],b[p],c[p],d[p])
 
                 redisHelper.initializeBracket(gpsID,p,[a[p],b[p],c[p],d[p]],['a','b','c','d'],paramType[p],alg[p],R)
-                redisHelper.saveIncumbent(gpsID,p,p0[p],0,cutoff*10,R)
+                   
+                    redisHelper.saveIncumbent(gpsID,p,p0[p],0,defaultScore,R)
+
             else:
                 redisHelper.initializeBracket(gpsID,p,prange[p],prange[p],paramType[p],alg[p],R)
-                redisHelper.saveIncumbent(gpsID,p,p0[p],0,cutoff*10,R)
+                redisHelper.saveIncumbent(gpsID,p,p0[p],0,defaultScore,R)
     
 
             #Perform a small number of initial runs so that we don't immediately make decisions that over-fit to random noise.
@@ -390,11 +402,11 @@ def gps(arguments, gpsID):
                 #Get the performance estimate for each point
                 f = {} 
                 for ptn in ptns:
-                    f[ptn] = calPerf(p,runs[p][ptn],pbest,prange,decayRate)
+                    f[ptn] = calPerf(p,runs[p][ptn],pbest,prange,decayRate,runObj)
 
                 #Update the incumbent
                 oldPbest = str(pbest[p])
-                pbest[p], inc[p], pbestNumRuns[p], pbestTime[p], prevIncInsts[p] = updateIncumbent(p,pts,ptns,runs[p],pbest,prevIncInsts[p],prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger)
+                pbest[p], inc[p], pbestNumRuns[p], pbestTime[p], prevIncInsts[p] = updateIncumbent(p,pts,ptns,runs[p],pbest,prevIncInsts[p],prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,runObj,logger)
                 redisHelper.saveIncumbent(gpsID,p,pbest[p],pbestNumRuns[p],pbestTime[p],R)
                 if(not str(pbest[p]) == oldPbest):
                     numIncUpdates[p] += 1
@@ -406,14 +418,14 @@ def gps(arguments, gpsID):
                                                     inc_id=-1,
                                                     ac_time=-1,
                                                     config=traj_format(pbest, pcs)))
-                    logger.info("The new incumbent for " + p + " is now " + str(pbest[p]) + "; estimated PAR10: " + str(pbestTime[p]) + ", based on " + str(pbestNumRuns[p]) + " run equivalents.")
+                    logger.info("The new incumbent for " + p + " is now " + str(pbest[p]) + "; estimated " + score + ": " + str(pbestTime[p]) + ", based on " + str(pbestNumRuns[p]) + " run equivalents.")
 
                 budget = redisHelper.getBudget(gpsID,R)
 
                 logger.debug('-'*30 + p + '-'*30)
                 logger.debug("Total Iterations: " + str(budget['totalIters']))
                 logger.debug("Best-Known: " + str(pbest[p]))
-                logger.debug("Estimated PAR10: " + str(pbestTime[p]) + " CPU Seconds, based on " + str(pbestNumRuns[p]) + " target algorithm runs.")
+                logger.debug("Estimated " + score + ": " + str(pbestTime[p]) + " CPU Seconds, based on " + str(pbestNumRuns[p]) + " target algorithm runs.")
                 logger.debug("Total Runs: " + str(budget['totalRuns']))
                 logger.debug("CPU Time Used: " + str(budget['totalCPUTime']) + " (Seconds)")
                 logger.debug("Wall-clock Time Used: " + str(time.time() - budget['startTime']) + " (Seconds)")
@@ -426,7 +438,7 @@ def gps(arguments, gpsID):
                     logger.debug("Function Values: " + str([f[ptn] for ptn in ptns]))
 
                 #Get the relative ordering of the performances as defined by a permutation test
-                comp = permTestSep(p,ptns,runs[p],pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,logger) 
+                comp = permTestSep(p,ptns,runs[p],pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,runObj,logger) 
            
                 updateDifferentSet(p,comp,ptns,pts,sigDiffSet)
  
@@ -501,7 +513,7 @@ def gps(arguments, gpsID):
                         # - no decision can be made after running the incumbent and it's challenger on all of instSet.
                         # In addition, it will only queue runs for a point in groups that have a size equal to a power of 2, such that each
                         # subequent group is only queued once the results have been obtained for all of the previous runs for that point.
-                        qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p] == 'integer',minInstances,budget,comp,weakness,instIncr,gpsID,R,logger)
+                        qs = queueRuns(runs[p],[a[p],b[p],c[p],d[p]],ptns,instSet[p],alg[p],inc[p],p,cutoff,pbest,prange,decayRate,alpha,paramType[p] == 'integer',minInstances,budget,comp,weakness,instIncr,gpsID,R,logger) 
                         #We append the queue state twice, this time it is measured right before 
                         #the next batch of runs of aqueued, to make sure that we don't biase our
                         #results based on the queue state taken only directly after the runs are queued.
@@ -593,7 +605,7 @@ def gps(arguments, gpsID):
         logger.info("Used: " + str(budget['totalRuns']) + " target algorithm runs.")
         #logger.info("Used: " + str(budget['totalIters']) + " GPS iterations.")
 
-        logger.info('Final Incumbent: ' + getParamString(pbest))
+        logger.info('Final Incumbent: ' + getParamString(pcs.removeInactive(pbest)))
 
         return pbest, decisionSeq, incumbentTrace, budget['totalCPUTime'], time.time() - budget['startTime']
     except:
@@ -1163,7 +1175,7 @@ def updateBudget(gpsID,timeSpent,R):
 def gpsSlave(arguments,gpsSlaveID,gpsID):
     #Author: YP
     #Created: 2018-07-06
-    #Last updated: 2019-03-07
+    #Last updated: 2019-06-28
     #The main function call to initiate a worker slave for GPS.
     #Slaves continually query the database for new tasks to run,
     #i.e., target algorithm runs, and then report the results back
@@ -1187,6 +1199,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
     pcsFile = arguments['pcs_file']
     insts = parseInstances(arguments['instance_file'])
     wrapper = arguments['algo']
+    runObj = arguments['run_obj'].lower()
     cutoff = arguments['algo_cutoff_time']
     runBudget = arguments['runcount_limit']
     wallBudget = arguments['wallclock_limit']
@@ -1249,11 +1262,13 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                 params = pcsHelper.handleInactive(pcs,params,task['p'])
                 task['alg']['params'] = params
 
-                logger.debug("Calculating the regularization penalty")
-                regFactor = getRegPenalty(task['p'],task['pt'],p0,prange,lmbda=2)
-                logger.debug("The penalty is: " + str(regFactor))
-                logger.debug("Original cutoff: " + str(task['cutoff']))
-                logger.debug("New cutoff: " + str(task['cutoff']/regFactor))
+                #logger.debug("Calculating the regularization penalty")
+                #regFactor = getRegPenalty(task['p'],task['pt'],p0,prange,lmbda=2)
+                #logger.debug("The penalty is: " + str(regFactor))
+                #logger.debug("Original cutoff: " + str(task['cutoff']))
+                #logger.debug("New cutoff: " + str(task['cutoff']/regFactor))
+                regFactor = 1 #Note: this is some un-used code for performing regularization for running time objectives only. This will not work for solution quality.
+                #In fact, changing this from any value but 1 (without other changes) will break the code for solution quality optimization. 
 
                 logger.debug("Running the task")
                 startTime = time.time()
@@ -1319,7 +1334,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
             #Query the database for a task, calculate the adaptive cap for the task,
             #and then enter the task into a list of tasks that are currently being processed
             #set the entry to expire after double the task's adaptive cap.
-            task, budget, curRunID = redisHelper.fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,logger)
+            task, budget, curRunID = redisHelper.fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,runObj,R,logger)
             if new_task:
                 logger.debug("Done Fetching.") 
                 logger.debug("Checking if the budget has been exhausted.")
@@ -1359,7 +1374,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logger):
     #Author: YP
     #Created: 2018-04-10
-    #Last updated: 2019-03-06
+    #Last updated: 2019-06-28
     #This function has been substantially modifed and renamed since it's creation, where it originally
     #was used to perform a batch of runs, it is now used to perform only a single run.
 

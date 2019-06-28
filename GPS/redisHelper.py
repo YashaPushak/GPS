@@ -569,9 +569,10 @@ def getIncumbent(gpsID,p,R):
    
 
 
-def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,logger):
+def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,runObj,R,logger):
     #Author: YP
-    #last updated: 2019-04-05
+    #Created before: 2019-04-05
+    #Last updated: 2019-06-28
     #Conforms to cat format.
 
 
@@ -629,7 +630,10 @@ def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,lo
 
                 #incVal,numRunsInc,incStat = getIncumbent(gpsID,p,pipe)
 
-                cutoffi = gpsHelper.getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,alg['params'],prange,decayRate,minInstances,boundMult,logger) 
+                if(runObj == 'runtime'):
+                    cutoffi = gpsHelper.getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,alg['params'],prange,decayRate,minInstances,boundMult,logger) 
+                else:
+                    cutoffi = cutoff
 
                 setRunning(gpsID,p,pt,inst,seed,cutoffi,pipe)
                  
