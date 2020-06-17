@@ -21,11 +21,17 @@ configurator for your application.
 ## Installing GPS
 
  - Create a python2.7 virtual environment
- - Download the latest version of GPS from https://github.com/YashaPushak/GPS
  - Download the latest version of the parameter configuration space parser
-from https://github.com/YashaPushak/PCS
+from https://github.com/YashaPushak/PCS 
+ - While in the main PCS directory, install PCS with 
+    pip install .
+or
+    python setup.py install --user
+ - Download the latest version of GPS from https://github.com/YashaPushak/GPS
+ - While in the main GPS directory, install GPS's other required python 
+packages
+    pip install -r requirements.txt
  - Setup a redis database
- - Install GPS's required python packages
 
 ## Using GPS
 
@@ -37,5 +43,11 @@ runs to be performed. The worker processes will repeatedly check for new
 target algorithms, perform them and then save the reuslts. Communication 
 between the master and worker processes is done through a redis database.
 
-Author: Yasha Pushak
-Contact: ypushak@cs.ubc.ca
+## Contact
+
+Yasha Pushak
+ypushak@cs.ubc.ca
+
+PhD Student & Vanier Scholar
+Department of Computer Science
+The University of British Columbia
