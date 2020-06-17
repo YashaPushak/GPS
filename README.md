@@ -51,9 +51,9 @@ between the master and worker processes is done through a redis database.
 
 ## Contact
 
-Yasha Pushak
-ypushak@cs.ubc.ca
+Yasha Pushak  
+ypushak@cs.ubc.ca  
 
-PhD Student & Vanier Scholar
-Department of Computer Science
-The University of British Columbia
+PhD Student & Vanier Scholar  
+Department of Computer Science  
+The University of British Columbia  
