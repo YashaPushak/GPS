@@ -24,14 +24,14 @@ configurator for your application.
  - Download the latest version of the parameter configuration space parser
 from https://github.com/YashaPushak/PCS 
  - While in the main PCS directory, install PCS with 
-    pip install .
+`pip install .`
 or
-    python setup.py install --user
+`python setup.py install --user`.
  - Download the latest version of GPS from https://github.com/YashaPushak/GPS
  - While in the main GPS directory, install GPS's other required python 
 packages
-    pip install -r requirements.txt
- - Setup a redis database
+`pip install -r requirements.txt`.
+ - Setup a redis database.
 
 ## Using GPS
 
