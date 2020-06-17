@@ -18,7 +18,7 @@ your particular target algorithm contains parameters that strongly violates
 either of these two assumptions, then GPS may not be the appropriate 
 configurator for your application.
 
-## Note on Current GPS Status
+## A Note on Current GPS Status
 
 This repository is actively being updated to include a new command line
 interface for interacting with GPS, along with substantially more documentation
