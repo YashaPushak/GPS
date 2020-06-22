@@ -80,10 +80,7 @@ def parseScenarioFile(scenarioFile,options):
     #the scenario file.) Finally, if a parameter is still left unspecified it uses GPS's
     #default value (see immediately below).
 
-    #pcsFile
-    #wrapper
-    #insts
-    #cutoff
+    scenarioDir = '/'.join(scenarioFile.split('/')[:-1])
     minInstances=5
     alpha=0.05
     decayRate=0.2
@@ -98,13 +95,11 @@ def parseScenarioFile(scenarioFile,options):
     s=-1
     sleepTime=0
     verbose=1
-    logLocation='' 
-    host='ada-udc.cs.ubc.ca'
+    logLocation=scenarioDir
+    host='undefined'
     port=9503
     dbid=0
         
-    scenarioDir = '/'.join(scenarioFile.split('/')[:-1])
-
     with open(scenarioFile) as f_in:
         for line in f_in:
             if(len(line.strip()) <= 0 or line[0] == '#'):
@@ -160,9 +155,7 @@ def parseScenarioFile(scenarioFile,options):
                 port = int(val)
             elif(key in ['dbid']):
                 dbid = int(val)
-   
-    print(verbose)
- 
+    
     if('pcs-file' in options.keys()):
         pcsFile = options['pcs-file']
     if('pcsFile' in options.keys()):
@@ -751,8 +744,6 @@ def gps(scenarioFile,scenarioOptions,gpsID):
             message += "run budget exhausted"
         elif(budget['totalIters'] >= budget['iter']):
             message += "iteration budget exhausted"
-        #elif(b-a <= tol):
-        #    message += "interval smaller than tolerance"
      
         logger.info(message)
         logger.info("Used: " + str(budget['totalCPUTime']) + " CPU Seconds on target algorithm runs")
