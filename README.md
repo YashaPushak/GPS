@@ -16,7 +16,6 @@ in parallel. These two assumptions allow GPS to quickly and efficiently explore
 the parameter configuration space. However, if you have reason to believe that
 your particular target algorithm contains parameters that strongly violates
 either of these two assumptions, then GPS may not be the appropriate 
-configurator for your application.
 
 ## A Note on Current GPS Status
 
