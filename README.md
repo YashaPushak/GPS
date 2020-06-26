@@ -48,6 +48,37 @@ runs to be performed. The worker processes will repeatedly check for new
 target algorithms, perform them and then save the reuslts. Communication 
 between the master and worker processes is done through a redis database.
 
+We have provided an example scenario with an artificial algorithm that 
+hallucinates running times. It first determines the difficulty of a given
+instance by randomly sampling from a normal distribution, which it uses
+as the mean of an exponential distribution, from which is samples a running
+time for a particular run of the target algorithm on that instance. This 
+running time base is then multiplied together with the output from a simple
+function of three independent parameters. This was designed to be an easy
+benchmark for GPS that can be run in less than 5 minutes with 2 processors.
+
+To run the scenario, from the base GPS directory you should run
+
+    python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
+
+This will setup the scenario files and output directory for the GPS run. It will
+then stop and wait until there is at least 1 GPS worker ready to start. Next,
+in a second terminal, run 
+
+    python2 run_gps_worker.py --redis-dbid 0
+
+Note that you do not need to set any arguments other than the redis database
+ID. The first process you started will have already created all of the files
+necessary for the GPS run, including a new copy of the scenario file with all
+GPS arguments fully instantiated. The worker will connect to the specified 
+database to determine the location of these files, and then it will begin to
+query the database for target algorithm runs to perform. At this time, the
+original process will begin running the GPS master process. 
+
+The entire process should take less than 5 minutes to run (often 1-3 on our 
+machines). See examples/artificial-algorithm/readme.txt for more details on
+the scenario and the expected output from GPS.
+
 ## Contact
 
 Yasha Pushak  
