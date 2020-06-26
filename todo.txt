@@ -1,0 +1,10 @@
+- Fix location of worker and master output files (*.pkl and log)
+- Add validation to ensure that the wrapper actually runs properly.
+- Figure out why the logger isn't working correctly when logging to both locations.
+- Copy the instance file and pcs file to the output location
+- Add a temporary file directory to GPS's parameters and use it for the location of
+  the target algorithm output files.
+- Improve the documentation for the installation instructions.
+- Redirect standard error to the target algorithm output files.
+- Create documentation for the parameters other than from running GPS with --help.
+- Add support for solution quality optimization?

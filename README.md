@@ -57,7 +57,9 @@ running time base is then multiplied together with the output from a simple
 function of three independent parameters. This was designed to be an easy
 benchmark for GPS that can be run in less than 5 minutes with 2 processors.
 
-To run the scenario, from the base GPS directory you should run
+To run the scenario, first ensure that you have completed in the installation
+instructions (including updating the redis_configuration.txt file to point GPS
+to the redis database). Then, from the base GPS directory you should run
 
     python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
 

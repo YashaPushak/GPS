@@ -90,7 +90,8 @@ with helper.cd(arguments['experiment_dir']):
         readyCount = redisHelper.getReadyCount(gpsID,R)
         logger.info("There are {} out of a minimum of {} workers ready..."
                     "".format(readyCount, arguments['minimum_workers']))     
-    
+   
+        logger.info("GPS Master process is starting.") 
         pbest, decisionSeq, incumbentTrace = gps.gps(arguments, gpsID)
         R.set('incumbent:' + str(gpsID),pbest)
     finally:

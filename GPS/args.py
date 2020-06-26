@@ -119,11 +119,10 @@ class ArgumentParser:
                 'type': _validate(float, 'The significance level must be a real number in [0, 0.25)', lambda x: 0 < float(x) <= 0.25)},
             ('--decay-rate',): {
                 'help': 'The decay rate used in GPS\'s decaying memory heuristic. Larger values mean information '
-                        'will be forgotten slowly, small values mean information will be forgotten quickly. Set '
-                        'this value to 1 if you know that none of your algorithm\'s parameter interact at all. '
+                        'will be forgotten slowly, small values mean information will be forgotten quickly. '
                         'Set this value to 0 if you believe that all of your algorithm\'s parameters interact '
-                        'strongly. Should be in [0, 1]. The default is 0.2',
-                'type': _validate(float, 'The decay rate must be a real number in [0, 1]', lambda x: 0 <= float(x) <= 1)},
+                        'strongly. Should be in [0, 0.5]. The default is 0.2',
+                'type': _validate(float, 'The decay rate must be a real number in [0, 0.5]', lambda x: 0 <= float(x) <= 0.5)},
             ('--bound-multiplier', '--bound-mult'): {
                 'help': 'The bound multiple used for adaptive capping. Should be \'adaptive\', False or a positive, '
                         'real number. We strongly recommend always setting it to \'adaptive\'. Using a value of '

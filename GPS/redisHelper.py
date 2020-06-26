@@ -24,6 +24,9 @@ def setRunID(gpsID,runID,R):
 
     R.set('runID:' + str(gpsID),runID)
 
+def setCancel(gpsID, R):
+    R.set('cancel:' + str(gpsID), 'True')
+
 def getRunID(gpsID,R):
 
     return R.get('runID:' + str(gpsID))
