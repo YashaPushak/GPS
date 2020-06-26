@@ -65,191 +65,21 @@ def loadPCS(pcsFile):
 
     return params,paramType,p0,prange,pcs
   
-        
-
-
-def parseScenarioFile(scenarioFile,options):
-    #Author: YP
-    #created: 2018-04-13
-    #Last modified: 2019-04-10
-    #Loads the scenario information.
-    #If there is a parameter specified in the "options" dict, it uses this first,
-    #Then, if there is a parameter specified in the scenario file it uses this second.
-    #If the same parameter appears multiple times in the scenario file, the last one
-    #overwrites all previous occurances. (Note also the "options" overwrites values in
-    #the scenario file.) Finally, if a parameter is still left unspecified it uses GPS's
-    #default value (see immediately below).
-
-    scenarioDir = '/'.join(scenarioFile.split('/')[:-1])
-    minInstances=5
-    alpha=0.05
-    decayRate=0.2
-    boundMult='adaptive'
-    instIncr=1
-    multipleTestCorrection=False
-    banditQueue='incumbent'
-    wallBudget=float('inf')
-    cpuBudget=float('inf')
-    runBudget=float('inf')
-    iterBudget=float('inf') 
-    s=-1
-    sleepTime=0
-    verbose=1
-    logLocation=scenarioDir
-    host='undefined'
-    port=9503
-    dbid=0
-        
-    with open(scenarioFile) as f_in:
-        for line in f_in:
-            if(len(line.strip()) <= 0 or line[0] == '#'):
-                continue
-            terms = line.split('=')
-            key = terms[0].strip()
-            val = terms[1].strip()
-            if(key in ['pcs-file','pcsFile']):
-                pcsFile = val
-            elif(key in ['algo','wrapper']):
-                wrapper = val
-            elif(key in ['instance_file','instance-file']):
-                insts = parseInstances(scenarioDir + '/' + val) 
-            elif(key in ['cutoffTime','cutoff-time']):
-                cutoff = int(val)
-            elif(key in ['minInstances','min-instances']):
-                minInstances = int(val)
-            elif(key == 'alpha'):
-                alpha = float(val)
-            elif(key in ['decayRate','decay-rate']):
-                decayRate = float(val)
-            elif(key in ['boundMultiplier','boundMult']):
-                try:
-                    boundMult = float(val)
-                except:
-                    if(val == 'adaptive'):
-                        boundMult = 'adaptive'
-                    else:
-                        boundMult = False
-            elif(key in ['instanceIncrement','instIncr']):
-                instIncr = int(val)
-            elif(key in ['multipleTestCorrection','multiple-test-correction']):
-                multipleTestCorrection = val.lower() in ['true','on']
-            elif(key in ['banditQueue','bandit-queue']):
-                banditQueue = val.lower()
-            elif(key in ['wallclock-limit','wallclockLimit']):
-                wallBudget = int(val)
-            elif(key in ['cputime-limit','cputimeLimit']):
-                cpuBudget = int(val)
-            elif(key in ['runcount-limit','runcountLimit']):
-                runBudget = int(val)
-            elif(key == 'seed'):
-                s = int(val)
-            elif(key in ['sleep-time','sleepTime']):
-                sleepTime = int(val)
-            elif(key in ['verbose']):
-                verbose = int(val)
-            elif(key in ['logLocation','log-location']):
-                logLocation = val
-            elif(key in ['host']):
-                host = val
-            elif(key in ['port']):
-                port = int(val)
-            elif(key in ['dbid']):
-                dbid = int(val)
-    
-    if('pcs-file' in options.keys()):
-        pcsFile = options['pcs-file']
-    if('pcsFile' in options.keys()):
-        pcsFile = options['pcsFile']
-    if('algo' in options.keys()):
-        wrapper = options['algo']
-    if('wrapper' in options.keys()):
-        wrapper = options['wrapper']
-    if('instance_file' in options.keys()):
-        insts = parseInstances(scenarioDir + '/' + options['instance_file'])
-    if('instance-file' in options.keys()):
-        insts = parseInstances(scenarioDir + '/' + options['instance-file'])
-    if('cutoffTime' in options.keys()):
-        cutoff = options['cutoffTime']
-    if('cutoff-time' in options.keys()):
-        cutoff = options['cutoffTime']
-    if('minInstances' in options.keys()):
-        minInstances = options['minInstances']
-    if('min-instances' in options.keys()):
-        minInstances = options['minInstances']
-    if('alpha' in options.keys()):
-        alpha = options['alpha']
-    if('decayRate' in options.keys()):
-        decayRate = options['decayRate']
-    if('decay-rate' in options.keys()):
-        decayRate = options['decay-rate']
-    if('boundMultiplier' in options.keys()):
-        boundMult = options['boundMultiplier']
-    if('boundMult' in options.keys()):
-        boundMult = options['boundMult']
-    if('instanceIncrement' in options.keys()):
-        instIncr = options['instanceIncrement']
-    if('instIncr' in options.keys()):
-        instIncr = options['instIncr']
-    if('multipleTestCorrection' in options.keys()):
-        multipleTestCorrection = options['multipleTestCorrection'] in ['True',True,'on']
-    if('multiple-test-correction' in options.keys()):
-        multipleTestCorrection = options['multiple-test-correction'] in ['True',True,'on']
-    if('banditQueue' in options.keys()):
-        banditQueue = options['banditQueue']
-    if('bandit-queue' in options.keys()):
-        banditQueue = options['bandit-queue']
-    if('wallclock-limit' in options.keys()):
-        wallBudget = options['wallclock-limit']
-    if('wallclockLimit' in options.keys()):
-        wallBudget = options['wallclockLimit']
-    if('cputime-limit' in options.keys()):
-        cpuBudget = options['cputime-limit']
-    if('cputimeLimit' in options.keys()):
-        cpuBudget = options['cputimeLimit']
-    if('runcount-limit' in options.keys()):
-        runBudget = options['runcount-limit']
-    if('runcountLimit' in options.keys()):
-        runBudget = options['runcountLimit']
-    if('seed' in options.keys()):
-        s = options['seed']
-    if('sleep-time' in options.keys()):
-        sleepTime = options['sleep-time']
-    if('sleepTime' in options.keys()):
-        sleepTime = options['sleepTime']
-    if('verbose' in options.keys()):
-        verbose = options['verbose']
-    if('logLocation' in options.keys()):
-        logLocation = options['logLocation']
-    if('log-location' in options.keys()):
-        logLocation = options['log-location']
-    if('host' in options.keys()):
-        host = options['host']
-    if('port' in options.keys()):
-        port = options['port']
-    if('dbid' in options.keys()):
-        dbid = options['dbid']
-   
-    return pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,banditQueue,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid
-
-
 def parseInstances(instFile,stripChars=0):
     #Author: YP
     #Created: 2018-04-13
  
     insts = []
-
     with open(instFile) as f_in:
         for line in f_in:
             insts.append(line.strip()[stripChars:])
 
     return insts
 
-
-
 def initializeSeed(s):
     #Author: YP
     #Created: 2019-03-11
-    if(s > 0):
+    if(s >= 0):
         random.seed(s)
         np.random.seed(s+12345)
     else:
@@ -259,73 +89,61 @@ def initializeSeed(s):
 
     return s 
 
-def logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget, paramFile, wrapper, cutoff, minInstances, alpha, decayRate, boundMult, instIncr, multiplTestCorrection, banditQueue, host, port, dbid, gpsID, verbose): 
-    #Author: YP
-    #Created: 2019-03-11
+def gps(arguments, gpsID):
+    """gps
 
-    logger.info("*"*50)
-    logger.info("Starting GPS with the following settings:")
-    logger.info("Random seed = " + str(s))
-    logger.info("Wallclock Budget = " + str(wallBudget))   
-    logger.info("CPU Budget = " + str(cpuBudget))   
-    logger.info("Run Budget = " + str(runBudget)) 
-    logger.info("Iteration Budget = " + str(iterBudget))
-    logger.info("PCS file = " + str(paramFile))
-    logger.info("Wrapper = " + str(wrapper))
-    logger.info("Running time cutoff = " + str(cutoff))
-    logger.info("Minimum Instances = " + str(minInstances))
-    logger.info("Alpha = " + str(alpha))
-    logger.info("Decay Rate = " + str(decayRate))
-    logger.info("Bound Multiplier = " + str(boundMult))
-    logger.info("Instance Increment = " + str(instIncr))
-    logger.info("Multiple test correction = " + str(multiplTestCorrection))
-    logger.info("Bandit Queue = " + str(banditQueue))
-    logger.info("host = " + str(host))
-    logger.info("port = " + str(port))
-    logger.info("dbid = " + str(dbid))
-    logger.info("gpsID = " + str(gpsID))
-    logger.info("verbosity = " + str(verbose))
-    logger.info("*"*50)
-	   
+    This is the main function for running the master process of GPS.
 
-
-
-        #alg,params[pInd]['name'],params[pInd]['default'],params[pInd]['pmin'],params[pInd]['pmax'],params[pInd]['integer'],insts,cutoff,minInstances,rId,wallBudget/n,cpuBudget/n,runBudget/n,iterBudget/n,numRuns,alpha,tol,decayRate,boundMult,s,comDir,verbose
-def gps(scenarioFile,scenarioOptions,gpsID):
-    #Author: YP
-    #Created: 2018-04-10
-    #Last modified: 2019-04-03
-    #Implements a modified golden section search to bracket the 
-    #the optimal solution. The algorithm has been modified to increase
-    #the bracket size in case parameter interactions shift the minimum.
-    #This algorithm is also being extended so that it accepts all dicts
-    #containing the information for each parameter in params. The code 
-    #is then being modified to cycle through each parameter and queue
-    #the target algorithm runs in a task queue that is processed by a
-    #set of worker jobs.
-    #We search over categorical parameters by using the same parallel
-    #racing procedure that we use to compare the four points in the bracket,
-    #however, we compare all k values at once. Once the best categorical
-    #parameter value has been found, we stop searching for a better one. 
-    #Note that we can restart the search later when other parameters that
-    #are updated cause us to lose confidence in the current incumbent due
-    #to decaying information from the stale target algorithm runs. 
-    #TODO: Add support for forbidden and for other types of condiational clauses. 
-
+    Parameters
+    ----------
+    arguments : dict
+        A dict mapping all of GPS's arguments to values. See args.py for more
+        information. Or run 'runGPS.py' from the command line.
+    gpsID : str
+        A unique identifier for this GPS run
+    """
 
     lastCPUTime = time.clock()
-    #Initialize this in case we crash
+    # Initialize this in case we crash
     pbest = None
 
-    pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,banditQueue,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid = parseScenarioFile(scenarioFile,scenarioOptions)
+    # Map the new argument dict into the original values
 
+    # Setup Arguments
+    logLocation = arguments['output_dir']
+    host = arguments['redis_host']
+    port = arguments['redis_port']
+    dbid = arguments['redis_dbid']
+    verbose = arguments['verbose']
+
+    # Scenario Arguments
+    pcsFile = arguments['pcs_file']
+    insts = parseInstances(arguments['instance_file'])
+    wrapper = arguments['algo']
+    cutoff = arguments['algo_cutoff_time'],
+    runBudget = arguments['runcount_limit']
+    wallBudget = arguments['wallclock_limit']
+    cpuBudget = arguments['cputime_limit']
+    iterBudget = float('inf')
+    s = arguments['seed']
+ 
+    # GPS Parameters
+    minInstances = arguments['minimum_runs']
+    alpha = arguments['alpha']
+    decayRate = arguments['decay_rate']
+    boundMult = arguments['bound_multiplier']
+    instIncr = arguments['instance_increment']
+    multipleTestCorrection = False
+    banditQueue = 'incumbent'
+    sleepTime = arguments['sleep_time']
+
+    # Connect to the database
     R = redisHelper.connect(host,port,dbid)
-    redisHelper.deleteDB(R)
-
-    redisHelper.setRunID(gpsID,helper.generateID(),R)
+    # Set a variable with the run ID for the workers to watch. They will terminate
+    # if this number changes.
+    redisHelper.setRunID(gpsID, gpsID, R)
 
     logger = getLogger(logLocation + '/gps.log',verbose)
-
     redisHelper.setVerbosity(gpsID,verbose,R)
 
     try:
@@ -339,7 +157,7 @@ def gps(scenarioFile,scenarioOptions,gpsID):
         #        p0 = {'decayRate':0.05}
         #prange contains the ranges for each parameter. 
         #        prange = {'decayRate':[0, 1], 'Heuristic':['on','off']}
-        #paramType contians a string indicating what each type of parameter is. It is
+        #paramType contains a string indicating what each type of parameter is. It is
         #replacing the old integer variable that stored booleans indicating if the 
         #parameter was an integer. 
         #        paramType = {'instIncr':'integer','decayRate':'real','Heuristic':'categorical'}
@@ -375,13 +193,10 @@ def gps(scenarioFile,scenarioOptions,gpsID):
         #Initialize the random seed being used by GPS.
         s = initializeSeed(s)
        
-        logConfigurationInfo(logger, s, wallBudget, cpuBudget, runBudget, iterBudget, pcsFile, wrapper, cutoff, minInstances, alpha, decayRate, boundMult, instIncr, multipleTestCorrection, banditQueue, host, port, dbid, gpsID, verbose)
- 
         #Run the instances in a random order for now. Though this might benefit from adapting the idea from Style et al.'s ordered racing procedure.
         random.shuffle(insts)
 
         #TODO: Refactor to pull out initialization of data.
-
         decisionSeq = []
         incumbentTrace = []
 
@@ -450,8 +265,7 @@ def gps(scenarioFile,scenarioOptions,gpsID):
             instanceSeedCounter[p] += minInstances
             instanceCounter[p] %= len(insts)
  
-        #Queue the default value for each parameter.
-                   
+        #Queue the default value for each parameter.          
         runDefault(params,p0,a,b,c,d,prange,paramType,instSet,gpsID,R,logger)
 
         #Initially, all of the incumbents have only been run on the first instance    
@@ -524,7 +338,6 @@ def gps(scenarioFile,scenarioOptions,gpsID):
                     queueState = []
                     lastQueueStateTime = time.time()
             
-
                 #Check to see if anything has changed   
                 oldRuns = cp.deepcopy(runs[p])
        
@@ -559,7 +372,6 @@ def gps(scenarioFile,scenarioOptions,gpsID):
                     numIncUpdates[p] += 1
                     incumbentTrace.append((time.time(),cp.deepcopy(pbest)))
                     logger.info("The new incumbent for " + p + " is now " + str(pbest[p]) + "; estimated PAR10: " + str(pbestTime[p]) + ", based on " + str(pbestNumRuns[p]) + " run equivalents.")
-
 
                 budget = redisHelper.getBudget(gpsID,R)
 
@@ -703,8 +515,6 @@ def gps(scenarioFile,scenarioOptions,gpsID):
                         #results based on the queue state taken only directly after the runs are queued.
                         queueState.append(qs)
 
- 
-
                 lastCPUTime = updateCPUTime(gpsID,lastCPUTime,R)
 
                 budget = redisHelper.getBudget(gpsID,R)     
@@ -729,9 +539,6 @@ def gps(scenarioFile,scenarioOptions,gpsID):
             done = done or budget['totalRuns'] >= budget['run']
             done = done or budget['totalIters'] >= budget['iter']
          
-
-
-
         lastCPUTime = updateCPUTime(gpsID,lastCPUTime,R)
         budget = redisHelper.getBudget(gpsID,R)
 
@@ -742,14 +549,14 @@ def gps(scenarioFile,scenarioOptions,gpsID):
             message += "CPU budget exhausted"
         elif(budget['totalRuns'] >= budget['run']):
             message += "run budget exhausted"
-        elif(budget['totalIters'] >= budget['iter']):
-            message += "iteration budget exhausted"
+        #elif(budget['totalIters'] >= budget['iter']):
+        #    message += "iteration budget exhausted"
      
         logger.info(message)
         logger.info("Used: " + str(budget['totalCPUTime']) + " CPU Seconds on target algorithm runs")
         logger.info("Used: " + str(time.time() - budget['startTime']) + " Wall Clock Seconds (total)")
         logger.info("Used: " + str(budget['totalRuns']) + " target algorithm runs.")
-        logger.info("Used: " + str(budget['totalIters']) + " GPS iterations.")
+        #logger.info("Used: " + str(budget['totalIters']) + " GPS iterations.")
 
         logger.info('Final Incumbent: ' + getParamString(pbest))
 
@@ -770,7 +577,6 @@ def gps(scenarioFile,scenarioOptions,gpsID):
             helper.saveObj(logLocation,incumbentTrace,'incumbent-trace')
       
            
-
 
 def getPtsPtns(p,paramType,prange,a,c,b,d):
     if(paramType[p] in ['integer','real']):
@@ -1313,7 +1119,7 @@ def updateBudget(gpsID,timeSpent,R):
 
 
 
-def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
+def gpsSlave(arguments,gpsSlaveID,gpsID):
     #Author: YP
     #Created: 2018-07-06
     #Last updated: 2019-03-07
@@ -1326,15 +1132,42 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
 
     lastCPUTime = time.clock()
 
-    pcsFile,wrapper,insts,cutoff,minInstances,alpha,decayRate,boundMult,instIncr,multipleTestCorrection,banditQueue,wallBudget,cpuBudget,runBudget,iterBudget,s,sleepTime,verbose,logLocation,host,port,dbid = parseScenarioFile(scenarioFile,scenarioOptions)
+    # Map the new argument dict into the original values
 
+    # Setup Arguments
+    logLocation = arguments['output_dir']
+    host = arguments['redis_host']
+    port = arguments['redis_port']
+    dbid = arguments['redis_dbid']
+    verbose = arguments['verbose']
+
+    # Scenario Arguments
+    pcsFile = arguments['pcs_file']
+    insts = parseInstances(arguments['instance_file'])
+    wrapper = arguments['algo']
+    cutoff = arguments['algo_cutoff_time']
+    runBudget = arguments['runcount_limit']
+    wallBudget = arguments['wallclock_limit']
+    cpuBudget = arguments['cputime_limit']
+    iterBudget = float('inf')
+    s = arguments['seed']
+ 
+    # GPS Parameters
+    minInstances = arguments['minimum_runs']
+    alpha = arguments['alpha']
+    decayRate = arguments['decay_rate']
+    boundMult = arguments['bound_multiplier']
+    instIncr = arguments['instance_increment']
+    multipleTestCorrection = False
+    banditQueue = 'incumbent'
+    sleepTime = arguments['sleep_time']
 
     params,paramType,p0,prange,pcs = loadPCS(pcsFile)
 
     R = redisHelper.connect(host,port,dbid)
     runTrace = []
 
-    logger = getLogger(logLocation + '/gps-slave-' + str(gpsSlaveID) + '.log',verbose)
+    logger = getLogger(logLocation + '/gps-worker-' + str(gpsSlaveID) + '.log',verbose)
 
     try:
 
@@ -1352,7 +1185,7 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
             oldVerbose = verbose
             verbose = redisHelper.getVerbosity(gpsID,R)
             if(not oldVerbose == verbose):
-                logger = getLogger(logLocation + '/gps-slave-' + str(gpsSlaveID) + '.log',verbose)
+                logger = getLogger(logLocation + '/gps-worker-' + str(gpsSlaveID) + '.log',verbose)
 
             #If there is a task
             if(task is not None):
@@ -1365,7 +1198,7 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
    
                 params = cp.deepcopy(task['alg']['params'])
                 params[task['p']] = task['pt']
-                #NOTE: We're going to assume that there are no grandchild dependencies. 
+                # This call is recursive, hence it handles grandchild, etc. dependencies
                 params = pcsHelper.handleInactive(pcs,params,task['p'])
                 task['alg']['params'] = params
 
@@ -1374,7 +1207,6 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
                 logger.debug("The penalty is: " + str(regFactor))
                 logger.debug("Original cutoff: " + str(task['cutoff']))
                 logger.debug("New cutoff: " + str(task['cutoff']/regFactor))
-
 
                 logger.debug("Running the task")
                 startTime = time.time()
@@ -1390,9 +1222,9 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
 
                 endTime = time.time()
                 logger.debug("Done running the task.")
+                logger.debug('Result: {}, {}, {}'.format(res,runtime,misc))
 
                 runTrace.append((startTime,endTime,task))
- 
 
                 if(runtime == 0 and not cutoffi == 0):
                     logger.debug("The running time was 0, but the cutoff was not.")
@@ -1435,7 +1267,7 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
             done = done or not curRunID == oldRunID
     
 
-        logger.info("The GPS Slave has stopped running.")
+        logger.info("The GPS worker has stopped running.")
 
         message = "Reason for stopping: "
         if(time.time() - budget['startTime'] >= budget['wall']):
@@ -1451,7 +1283,7 @@ def gpsSlave(scenarioFile,scenarioOptions,gpsSlaveID,gpsID):
 
         logger.info(message)
 
-        helper.saveObj(logLocation,runTrace,'run-trace-gps-' + str(gpsID) + '-slave-' + str(gpsSlaveID))
+        helper.saveObj(logLocation,runTrace,'run-trace-gps-' + str(gpsID) + '-worker-' + str(gpsSlaveID))
 
         return runTrace
     except:
@@ -1648,7 +1480,7 @@ def setStartPoints(p0,pmin,pmax):
 
 
 
-def runInstance(logger, wrapper, params, inst, inst_spec, seed, cutoff, runlength, runId='r0', runDir = '/global/scratch/ypushak/GPS-dev/run-files'):
+def runInstance(logger, wrapper, params, inst, inst_spec, seed, cutoff, runlength, runId='r0', runDir = '.'):
     #Runs the target algorithm on the specified instance.
     
     outputFile = runDir + '/log-' + runId + '.log'
@@ -1668,31 +1500,38 @@ def readOutputFile(outputFile):
     #Author: Yasha Pushak
     #Created: 2018-04-12
 
-    #Parse theresults from the temp file
-    with open(outputFile) as f:
-        #Specify inf in case of error or timeout
-        runtime = float('inf')
-        res = "CRASHED"
-        misc = '' 
-        for line in f:
-            if("Result for SMAC:" in line or "Result for ParamILS" in line):
-                results = line[line.index(":")+1:].split(",")
-                     
-                runtime = float(results[1])
-             
-                if("SAT" in results[0] or "UNSAT" in results[0] or "SUCCESS" in results[0]):
-                    res = "SUCCESS"
-                elif("CRASHED" in results[0]):
-                    res = "CRASHED"
-                elif("TIMEOUT" in results[0]):
-                    res = "TIMEOUT"
-                    runtime = float('inf')
-                else:
-                    res = "CRASHED"
-                    logger.debug("Results from a crashed run: " + str(results))
-                
-                misc = results[-1].strip() + ' - ' + str(results[0])
-
+    #Specify inf in case of error or timeout
+    runtime = float('inf')
+    res = "CRASHED"
+    misc = 'The target algorithm failed to produce output in the expected format'
+    if not helper.isFile(outputFile):
+        misc = 'The target algorithm failed to produce any output'
+    else:
+        #Parse theresults from the temp file
+        with open(outputFile) as f:
+            for line in f:
+                if("Result for SMAC:" in line 
+                   or "Result for ParamILS:" in line 
+                   or "Result for GPS:" in line):
+                    results = line[line.index(":")+1:].split(",")
+                         
+                    runtime = float(results[1])
+                 
+                    if ("SAT" in results[0] 
+                       or "UNSAT" in results[0] 
+                       or "SUCCESS" in results[0]):
+                        res = "SUCCESS"
+                    elif("CRASHED" in results[0]):
+                        res = "CRASHED"
+                    elif("TIMEOUT" in results[0]):
+                        res = "TIMEOUT"
+                        runtime = float('inf')
+                    else:
+                        res = "CRASHED"
+                        logger.debug("Results from a crashed run: " + str(results))
+                    
+                    misc = results[-1].strip() + ' - ' + str(results[0])
+    
     os.system('rm ' + outputFile + ' -f')
 
     return res, runtime, misc
@@ -1710,25 +1549,26 @@ def getLogger(logLocation,verbose):
     for h in logger.handlers:
         logger.removeHandler(h)
 
-    #Now we're going to make a new one.
-    if(len(logLocation) > 0):
-        h = logging.StreamHandler(open(logLocation,'a'))
-    else:
-        h = logging.StreamHandler(sys.stdout)
+    #Now we're going to make some new ones
+    handlers = []
+    handlers.append(logging.StreamHandler(sys.stdout))
+    #if(len(logLocation) > 0):
+    #    handlers.append(logging.StreamHandler(open(logLocation,'a')))
 
-    h.setFormatter(logging.Formatter('[%(levelname)s]:%(asctime)s: %(message)s'))
+    for h in handlers:
+        h.setFormatter(logging.Formatter('[%(levelname)s]:%(asctime)s: %(message)s'))
 
-    if(verbose == '0' or str(verbose).lower() == 'warning'):
-        logger.setLevel(logging.WARNING)
-        h.setLevel(logging.WARNING)
-    elif(verbose == '1' or str(verbose).lower() == 'info'):
-        logger.setLevel(logging.INFO)
-        h.setLevel(logging.INFO)
-    elif(verbose == '2' or str(verbose).lower() == 'debug'):
-        logger.setLevel(logging.DEBUG)
-        h.setLevel(logging.DEBUG)
+        if(verbose == '0' or str(verbose).lower() == 'warning'):
+            logger.setLevel(logging.WARNING)
+            h.setLevel(logging.WARNING)
+        elif(verbose == '1' or str(verbose).lower() == 'info'):
+            logger.setLevel(logging.INFO)
+            h.setLevel(logging.INFO)
+        elif(verbose == '2' or str(verbose).lower() == 'debug'):
+            logger.setLevel(logging.DEBUG)
+            h.setLevel(logging.DEBUG)
 
-    logger.addHandler(h)
+        logger.addHandler(h)
 
     return logger
     

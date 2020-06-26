@@ -644,7 +644,7 @@ def calChange(p0,p1,prange):
 def getParamString(params):
     #Author: YP
     #Created: 2018-04-12
-    #Converts a dict of parameters into a parmaeter call string.
+    #Converts a dict of parameters into a paramter call string.
 
     s = ''
     for p in sorted(params.keys()):

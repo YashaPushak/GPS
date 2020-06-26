@@ -1,15 +1,11 @@
 import time
-import sys
 import random
 import os
 
-import redis
-from redis import WatchError
-
-import gps
-import redisHelper
-import helper
-import args
+from GPS import gps
+from GPS import redisHelper
+from GPS import helper
+from GPS import args
 
 # Parse the command line arguments, then, if provided, parse the arguments in 
 # the scenario file. Then adds default values for paramaters without definitions
@@ -17,7 +13,7 @@ import args
 # directories exist, and then checks to make sure that all required arguements 
 # received definitions.
 argument_parser = args.ArgumentParser()
-arguments, skipped_lines = arguments_parser.parse_arguments()
+arguments, skipped_lines = argument_parser.parse_arguments()
 
 # Everything GPS does should be done from within the experiment directory
 # (which defaults to the current working directory)
@@ -26,6 +22,8 @@ with helper.cd(arguments['experiment_dir']):
     R = redisHelper.connect(host=arguments['redis_host'],
                             port=arguments['redis_port'],
                             dbid=arguments['redis_dbid'])
+    # Clear all old state from the current database
+    redisHelper.deleteDB(R)
 
     # Create a random ID for this GPS run
     gpsID = helper.generateID()
@@ -46,10 +44,18 @@ with helper.cd(arguments['experiment_dir']):
 
     # Get a logger
     logger = gps.getLogger('{}/gps.log'.format(output_dir), arguments['verbose'])
+    # Announce the start of the run
+    logger.info('Starting new GPS run with GPS ID {}'.format(gpsID))
     # And record a warning, if needed.
     if moved:
         logger.warning('Moved old GPS log files to directory {}-{}'
                        ''.format(output_dir, random_id))
+
+    # Issue a warning about skipped lines in the scenario file
+    if len(skipped_lines) > 0:
+        for line in skipped_lines:
+            logger.warning("GPS skipped the following unrecognized line '{}' "
+                           "in the scenario file".format(line))
 
     # Update the random seed, if needed
     if arguments['seed'] <= 0:
@@ -60,44 +66,34 @@ with helper.cd(arguments['experiment_dir']):
     # and it is useful to have for later for debugging purposes as well.
     scenario_file = os.path.abspath(os.path.expanduser(os.path.expandvars('{}/scenario.txt'.format(output_dir))))
     argument_parser.create_scenario_file(scenario_file, arguments)
- 
-    R.set('scenarioFile:' + str(gpsID),scenarioFile)
-    R.set('scenarioOptions:' + str(gpsID),scenarioOptions)
-    R.set('numSlaves:' + str(gpsID),numSlaves)
-    R.set('readyCount:' + str(gpsID),0)
-       
+
+    R.set('scenarioFile:' + str(gpsID), scenario_file)
+    R.set('readyCount:' + str(gpsID), 0)
+    # Signal to the workers that the master is ready.
+    R.set('gpsID', gpsID)
+      
     try: 
         #Wait until all of the slaves are ready
         ready = False
-        logger.info('Waiting until everyone is ready...')    
+        logger.info('Waiting until all workers are ready...')    
         oldReadyCount = -1
     
         while(not ready):
             time.sleep(1)
             readyCount = redisHelper.getReadyCount(gpsID,R)
             if(readyCount != oldReadyCount):
-                logger.info("There are {}/{} slaves ready".format(readyCount, numSlaves))     
+                logger.info("There are {} out of a minimum of {} workers ready..."
+                            "".format(readyCount, arguments['minimum_workers']))     
                 oldReadyCount = readyCount
-            ready = (readyCount >= numSlaves)
+            ready = readyCount >= arguments['minimum_workers']
           
         readyCount = redisHelper.getReadyCount(gpsID,R)
-        logger.info("There are {}/{} slaves ready".format(readyCount, numSlaves))     
+        logger.info("There are {} out of a minimum of {} workers ready..."
+                    "".format(readyCount, arguments['minimum_workers']))     
     
-        pbest, decisionSeq, incumbentTrace = gps.gps(scenarioFile,scenarioOptions,gpsID)
-        if(pbest == -1):
-            failedCount += 1
-            numReplicates += 1
-    
-            if(failedCount >= numReplicates/2.0):
-                #We have failed as many times as we were originally supposed to run. 
-                #maybe something is wrong. Let's actually abort now
-                #numReplicates = -1
-                print("We may need to abort the remaining replicate runs because GPS failed too many times.")
-    
-        R = redisHelper.connect()
+        pbest, decisionSeq, incumbentTrace = gps.gps(arguments, gpsID)
         R.set('incumbent:' + str(gpsID),pbest)
     finally:
-        R = redisHelper.connect()
         R.set('cancel:' + str(gpsID),'True')
     
     

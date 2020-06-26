@@ -1,0 +1,4 @@
+# Redis Database Configuration
+# ----------------------------
+redis-host = ada-udc.cs.ubc.ca
+redis-port = 9503

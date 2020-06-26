@@ -441,7 +441,8 @@ def addRun(gpsID,p,pt,ptns,inst,seed,res,runtime,alg,adaptiveCap,runID,logger,R)
                     #The bracket was updated and this point was removed
                     #while the run was in progress. We can just discard this
                     #run.
-                    logger.info("DISCARDING THIS RUN: " + str([p,pt,inst,seed,res,runtime,alg,adaptiveCap]))
+                    logger.debug("The bracket was updated while a run was in progress."
+                                 "We are discarding this run: " + str([p,pt,inst,seed,res,runtime,alg,adaptiveCap]))
                     pipe.delete('task:' + task)
                     break
                 for i in range(0,len(ptns)):
@@ -583,7 +584,7 @@ def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,lo
                     return None, getBudget(gpsID,pipe), runID
                 p, pt, inst, seed = eval(task)
 
-                logger.info("Found task: " + str(task))
+                logger.debug("Found task: " + str(task))
 
                 #pipe.multi()
 
@@ -619,8 +620,6 @@ def fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,lo
                 #incVal,numRunsInc,incStat = getIncumbent(gpsID,p,pipe)
 
                 cutoffi = gpsHelper.getAdaptiveCap(p,runs,inst,seed,ptn,cutoff,alg['params'],prange,decayRate,minInstances,boundMult,logger) 
-
-                #print(cutoffi)
 
                 setRunning(gpsID,p,pt,inst,seed,cutoffi,pipe)
                  

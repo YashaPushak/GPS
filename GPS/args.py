@@ -27,6 +27,14 @@ class ArgumentParser:
                 'help': 'The directory where output will be stored. The actual directory for a particular'
                         'GPS run with ID gps_id will be stored in {experiment-dir}/{output-dir}/gps-run-{gps_id}',
                 'type': str},
+            ('--verbose', '--verbosity', '--log-level', '-v'): {
+                'help': 'Controls the verbosity of GPS\'s output. Set of 0 for warnings only. Set to '
+                        '1 for more informative messages. And set to 2 for debug-level messages. The '
+                        'default is 1.',
+                'type': _validate(int, 'The verbosity must be in [0, 1, 2]', lambda x: 0 <= x <= 2)}
+        }
+
+        self.redis_arguments = {
             ('--redis-host', '--host'): {
                 'help': 'The redis database host name.',
                 'type': str},
@@ -38,11 +46,6 @@ class ArgumentParser:
                         'of this GPS instance must be given this ID. Each GPS instance must have a '
                         'unique database ID.',
                 'type': int},
-            ('--verbose', '--verbosity', '--log-level', '-v'): {
-                'help': 'Controls the verbosity of GPS\'s output. Set of 0 for warnings only. Set to '
-                        '1 for more informative messages. And set to 2 for debug-level messages. The '
-                        'default is 1.',
-                'type': _validate(int, 'The verbosity must be in [0, 1, 2]', lambda x: 0 <= x <= 2)}
         }
         
         self.scenario_arguments = {
@@ -57,27 +60,35 @@ class ArgumentParser:
             ('--algo', '--algo-exec', '--algorithm', '--wrapper'): {
                 'help': 'The command line string used to execute the target algorithm',
                 'type': str},
-            ('--algo-cutoff-time', '--target-run-cputime-limit', '--cutoff-time'): {
+            ('--algo-cutoff-time', '--target-run-cputime-limit', '--cutoff-time', '--cutoff'): {
                 'help': 'The CPU time limit for an individual target algorithm run, in seconds. The default '
                         'is 10 minutes.',
                 'type': _validate(float, 'The cutoff time must be a real, positive number', lambda x: float(x) > 0)},
             ('--runcount-limit', '--total-num-runs-limit', '--num-runs-limit', '--number-of-runs-limit'): {
-                'help': 'Limits the total number of target algorithm runs performed by GPS. Either this, or '
-                        'the wallclock limit must be less than the maximum integer value. The default is the '
+                'help': 'Limits the total number of target algorithm runs performed by GPS. Either this, '
+                        'the wallclock or CPU time limit must be less than the maximum integer value. The default is the '
                         'maximum integer value.',
                 'type': _validate(int, 'The run count limit must be a positive integer', lambda x: int(x) > 0)},
             ('--wallclock-limit', '--runtime-limit'): {
-                'help': 'Limits the total wall-clock time used by GPS, in seconds. Either this or the runcount '
-                        'limit must be less than the maximum integer value. The default is the maximum integer '
+                'help': 'Limits the total wall-clock time used by GPS, in seconds. Either this, the runcount  or the CPU '
+                        'time limit must be less than the maximum integer value. The default is the maximum integer '
                         'value.',
                 'type': _validate(float, 'The wall-clock time must be a positive, real number', lambda x: float(x) > 0)},
+            ('--cputime-limit', '--tunertime-limit', '--tuner-timeout'): {
+                'help': 'Limits the total CPU time used by the target algorithm, in seconds. Either this, the runcount '
+                        'or the wallclock limit must be less than the maximum integer value. The default is the maximum integer '
+                        'value. NOTE: Unlike SMAC, this does not include the CPU time spent by GPS -- this only adds the '
+                        'running times reported by your target algorithm wrapper and terminates GPS once they have exceeded '
+                        'this limit.',
+                'type': _validate(float, 'The CPU time limit must be a positive, real number', lambda x: float(x) > 0)},
             ('--seed',): {
                 'help': 'The random seed used by GPS. If -1, a random seed will be used.',
                 'type': _validate(int, 'The seed must be a positive integer or -1', lambda x: int(x) >= -1)}
         }
         
         self.gps_parameters = {
-            ('--min-runs', '--min-run-equivalents', '--min-instances'): {
+            ('--minimum-runs', '--min-runs', '--minimum-run-equivalents', '--min-run-equivalents', 
+             '--minimum-instances', '--min-instances'): {
                 'help': 'The minimum number of run equivalents on which a configuration must be run '
                         'before it can be accepted as a new incumbent. This is also the minimum number of '
                         'run equivalents required before two configurations will be compared to each other '
@@ -140,7 +151,7 @@ class ArgumentParser:
                         'pushed to the database, they will sleep for this amount of time, measured in CPU seconds.'
                         'The default is 0.',
                 'type': _validate(float, 'The sleep time must be a positive, real number', lambda x: float(x) >= 0)},
-            ('--minimum-workers',): {
+            ('--minimum-workers', '--min-workers'): {
                 'help': 'GPS must use at least two processes to run: the master process, which loops through '
                         'each parameter checking for updates and queuing runs; and at least one worker process, '
                         'which perform target algorithm runs. By default, GPS\'s master process will setup the '
@@ -160,14 +171,43 @@ class ArgumentParser:
         }
         
         self.argument_groups = {'Setup Arguments': self.setup_arguments,
+                                'Redis Arguments': self.redis_arguments,
                                 'Scenario Arguments': self.scenario_arguments,
                                 'GPS Parameters': self.gps_parameters}
         # Location of the GPS source code directory
         gps_directory = os.path.dirname(os.path.realpath(inspect.getfile(inspect.currentframe())))
         # File with hard-coded default values for all (optional) GPS parameters
         self.defaults = '{}/.gps_defaults.txt'.format(gps_directory)
+        # File with user-specified default values for redis database
+        self.redis_defaults = '{}/../redis_configuration.txt'.format(gps_directory)
 
- 
+    def parse_worker_command_line_arguments(self):
+        """parse_worker_command_line_arguments
+
+        Parses the command line arguments for a GPS worker.
+
+        Returns
+        -------
+        arguments: dict
+             A dictionary containing the parsed arguments.
+        """
+        parser = argparse.ArgumentParser()
+        for arg in self.redis_arguments:
+             parser.add_argument(*_get_aliases(arg), dest=_get_name(arg), **self.redis_arguments[arg])
+        # Parse the command line arguments and convert to a dictionary
+        args = vars(parser.parse_args())
+        keys = list(args.keys())
+        # Remove everything that is None so that we know to replace those values with scenario file arguments
+        # instead.
+        for arg in keys:
+            if args[arg] is None:
+                del args[arg]
+
+        if helper.isFile(self.redis_defaults):
+            args, _ = self.parse_file_arguments(self.redis_defaults, args)
+        self._validate_redis_arguments_defined(args)
+        return args 
+
     def parse_command_line_arguments(self):
         """parse_command_line_arguments
     
@@ -175,8 +215,8 @@ class ArgumentParser:
     
         Returns
         -------
-        parser: argpargse.ArgumentParser
-            A command line parser to parse the command line arguments
+        arguments: dict
+            A dictionary containing the parsed arguments.
         """
         parser = argparse.ArgumentParser()
         for group_name in self.argument_groups:
@@ -193,7 +233,7 @@ class ArgumentParser:
                 del args[arg]
         return args
    
-    def parse_file_arguments(self, scenario_file, override_arguments):
+    def parse_file_arguments(self, scenario_file, override_arguments={}):
         """parse_file_arguments
     
         Reads in the scenario file arguments, over-writes any of them with their
@@ -227,7 +267,7 @@ class ArgumentParser:
                 if found:
                     continue
                 if not found:
-                    skipped_lines.append(skipped_lines)
+                    skipped_lines.append(line)
         # Overwrite any argument definitions, as needed 
         for argument in override_arguments:
             parsed_arguments[argument] = override_arguments[argument]
@@ -264,6 +304,9 @@ class ArgumentParser:
                                   "current working directory '{}' (which is the experiment directory, "
                                   "if one was specified on the command line)."
                                   "".format(arguments['scenario_file'], os.getcwd()))
+        # Finally, load the default values of the redis configuration parameters
+        if helper.isFile(self.redis_defaults):
+            arguments, _ = self.parse_file_arguments(self.redis_defaults, arguments)
         # Finally, load the default values of all GPS parameters (that make sense to be shared)
         arguments, _ = self.parse_file_arguments(self.defaults, arguments)
         # Check that all parameters have defintions (optional parameters not specified by the
@@ -293,7 +336,18 @@ class ArgumentParser:
             missing.remove('scenario_file')
         if len(missing) > 0:
             raise TypeError('GPS was missing definitions for the following required arguments: {}'
-                            ''.format(missing))        
+                            ''.format(missing))       
+
+    def _validate_redis_arguments_defined(self, arguments):
+        missing = []
+        # iterate over all redis arguments
+        for argument in self.redis_arguments:
+            name = _get_name(argument)
+            if name not in arguments:
+                missing.append(name)
+        if len(missing) > 0:
+            raise TypeError('The GPS worker was missing definitions for the following required arguments: {}'
+                            ''.format(missing))       
 
     def create_scenario_file(self, scenario_file, arguments):
         """create_scenario_file
@@ -364,7 +418,11 @@ def _validate_bound_multiplier(bm):
     return bm
 
 def _validate_budget(arguments):
-    if arguments['runcount_limit'] == 2147483647 and arguments['wallclock_limit'] == 2147483647:
+    budgets = ['runcount_limit', 'wallclock_limit', 'cputime_limit']
+    all_default = True
+    for budget in budgets:
+        all_default = all_default and arguments[budget] == 2147483647
+    if all_default:
         raise ValueError('At least one of runcount_limit and wallclock_limit must be less than '
                          'the maximum integer value (which is their default value).')
 
