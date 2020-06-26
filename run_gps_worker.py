@@ -15,12 +15,14 @@ R = redisHelper.connect(host=arguments['redis_host'],
 print("Waiting until there is a GPS run to perform...")
 #Get the gpsID that this slave is supposed to run
 gpsID = None
+print('Waiting for a GPS ID...')
 while gpsID is None:
     time.sleep(1)
     gpsID = R.get('gpsID')
-    if(gpsID is None):
-        print('Waiting for a GPS ID...')
-    else:
+    cancel = R.get('cancel:' + str(gpsID)) == 'True'
+    if cancel:
+        gpsID = None
+    if(gpsID is not None):
         print('Found GPS ID: {}'.format(gpsID))
 
 scenarioFile = R.get('scenarioFile:' + str(gpsID))
@@ -46,9 +48,12 @@ with helper.cd(arguments['experiment_dir']):
         ready = readyCount >= arguments['minimum_workers']
         cancel = R.get('cancel:' + str(gpsID)) == 'True'
         if(cancel):
-            logger.info("Recieved signal to cancel...")
             break
+    cancel = R.get('cancel:' + str(gpsID)) == 'True'
 
     if(not cancel):
+        logger.info("GPS worker process is starting.")
         runTrace = gps.gpsSlave(arguments, gps_worker_id, gpsID)
+    else:
+        logger.info("Recieved signal to cancel.")
 

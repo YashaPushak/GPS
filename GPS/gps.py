@@ -570,6 +570,7 @@ def gps(arguments, gpsID):
     finally:
         #Signal the slaves to stop
         redisHelper.setRunID(gpsID,-1,R)
+        redisHelper.setCancel(gpsID, R)
 
         if(pbest is not None):
             helper.saveObj(logLocation,pbest,'incumbent')
