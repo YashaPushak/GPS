@@ -137,6 +137,9 @@ def gps(arguments, gpsID):
     banditQueue = 'incumbent'
     sleepTime = arguments['sleep_time']
 
+    # Get a logger
+    logger = getLogger('{}/gps.log'.format(logLocation), verbose)
+
     # Connect to the database
     R = redisHelper.connect(host,port,dbid)
     # Set a variable with the run ID for the workers to watch. They will terminate
@@ -312,8 +315,6 @@ def gps(arguments, gpsID):
         paramPool = cp.deepcopy(params)
 
         while not done:
-            verbose = redisHelper.getVerbosity(gpsID,R)
-            logger = getLogger(logLocation + '/gps.log',verbose)
             if(banditQueue in ['incumbent','differences']):
                 #In case we have run out of options
                 if(len(paramPool) == 0):
@@ -578,11 +579,8 @@ def gps(arguments, gpsID):
 
         logger.info('Final Incumbent: ' + getParamString(pbest))
 
-        helper.saveObj(logLocation,True,'completed-successfully') 
-
         return pbest, decisionSeq, incumbentTrace
     except:
-        helper.saveObj(logLocation,False,'completed-successfully')
         logger.exception("exiting with failure")
         raise
     finally:
@@ -590,10 +588,10 @@ def gps(arguments, gpsID):
         redisHelper.setRunID(gpsID,-1,R)
         redisHelper.setCancel(gpsID, R)
 
-        if(pbest is not None):
-            helper.saveObj(logLocation,pbest,'incumbent')
-            helper.saveObj(logLocation,decisionSeq,'decision-sequence')
-            helper.saveObj(logLocation,incumbentTrace,'incumbent-trace')
+        #if(pbest is not None):
+        #    helper.saveObj(logLocation,pbest,'incumbent')
+        #    helper.saveObj(logLocation,decisionSeq,'decision-sequence')
+        #    helper.saveObj(logLocation,incumbentTrace,'incumbent-trace')
       
            
 
@@ -1302,7 +1300,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
         logger.info(message)
 
-        helper.saveObj(logLocation,runTrace,'run-trace-gps-' + str(gpsID) + '-worker-' + str(gpsSlaveID))
+        helper.saveObj(logLocation,runTrace,'run-trace-gps-worker-' + str(gpsSlaveID))
 
         return runTrace
     except:
@@ -1564,28 +1562,14 @@ def getLogger(logLocation,verbose,console=True,
 
     #Get a logger
     logger = logging.getLogger(logger_name)
-    
-    #We're going to be bad, and remove all handlers from this logger.
-    #TODO: Rethink this one day.
-    for h in logger.handlers:
-        logger.removeHandler(h)
+    logger.propogate = False
 
-    #Now we're going to make some new ones
-    handlers = []
-    if console:
-        handlers.append(logging.StreamHandler(sys.stdout))
-    if(len(logLocation) > 0):
-        handlers.append(logging.StreamHandler(open(logLocation,'a')))
-
-    if(verbose == '0' or str(verbose).lower() == 'warning'):
-        logger.setLevel(logging.WARNING)
-    elif(verbose == '1' or str(verbose).lower() == 'info'):
-        logger.setLevel(logging.INFO)
-    elif(verbose == '2' or str(verbose).lower() == 'debug'):
-        logger.setLevel(logging.DEBUG)
-
-    for h in handlers:
-        h.setFormatter(logging.Formatter(format_))
+    if not logger.handlers:
+        handlers = []
+        if console:
+            handlers.append(logging.StreamHandler(sys.stdout))
+        if(len(logLocation) > 0):
+            handlers.append(logging.StreamHandler(open(logLocation,'a')))
 
         if(verbose == '0' or str(verbose).lower() == 'warning'):
             logger.setLevel(logging.WARNING)
@@ -1594,7 +1578,17 @@ def getLogger(logLocation,verbose,console=True,
         elif(verbose == '2' or str(verbose).lower() == 'debug'):
             logger.setLevel(logging.DEBUG)
 
-        logger.addHandler(h)
+        for h in handlers:
+            h.setFormatter(logging.Formatter(format_))
+
+            if(verbose == '0' or str(verbose).lower() == 'warning'):
+                h.setLevel(logging.WARNING)
+            elif(verbose == '1' or str(verbose).lower() == 'info'):
+                h.setLevel(logging.INFO)
+            elif(verbose == '2' or str(verbose).lower() == 'debug'):
+                h.setLevel(logging.DEBUG)
+
+            logger.addHandler(h)
 
     return logger
     
