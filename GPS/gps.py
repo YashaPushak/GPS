@@ -143,7 +143,11 @@ def gps(arguments, gpsID):
     # if this number changes.
     redisHelper.setRunID(gpsID, gpsID, R)
 
-    logger = getLogger(logLocation + '/gps.log',verbose)
+    logger = getLogger(logLocation + '/gps.log', verbose, console=True)
+    incumbent_logger = getLogger(logLocation + '/traj.csv', verbose=1, console=False,
+                                 format_='%(message)s', logger_name='incumbent_logger')
+    incumbent_logger.info('CPU Time Used,Estimated Training Performance,Wallclock Time,'
+                          'Incumbent ID,Automatic Configurator (CPU) Time,Configuration...')
     redisHelper.setVerbosity(gpsID,verbose,R)
 
     try:
@@ -220,6 +224,13 @@ def gps(arguments, gpsID):
 
         #Save the initial incumbent
         incumbentTrace.append((time.time(),cp.deepcopy(pbest)))
+        incumbent_logger.info('{cpu_time},{train_perf},{wall_time},{inc_id},{ac_time},{config}'
+                              ''.format(cpu_time=budget['totalCPUTime'],
+                                        train_perf=pbestTime[p],
+                                        wall_time=time.time() - budget['startTime'],
+                                        inc_id=-1,
+                                        ac_time=-1,
+                                        config=traj_format(pbest, pcs)))
 
         instSet = newParamDict(params,[])
 
@@ -371,6 +382,13 @@ def gps(arguments, gpsID):
                 if(not str(pbest[p]) == oldPbest):
                     numIncUpdates[p] += 1
                     incumbentTrace.append((time.time(),cp.deepcopy(pbest)))
+                    incumbent_logger.info('{cpu_time},{train_perf},{wall_time},{inc_id},{ac_time},{config}'
+                                          ''.format(cpu_time=budget['totalCPUTime'],
+                                                    train_perf=pbestTime[p],
+                                                    wall_time=time.time() - budget['startTime'],
+                                                    inc_id=-1,
+                                                    ac_time=-1,
+                                                    config=traj_format(pbest, pcs)))
                     logger.info("The new incumbent for " + p + " is now " + str(pbest[p]) + "; estimated PAR10: " + str(pbestTime[p]) + ", based on " + str(pbestNumRuns[p]) + " run equivalents.")
 
                 budget = redisHelper.getBudget(gpsID,R)
@@ -1538,12 +1556,14 @@ def readOutputFile(outputFile):
     return res, runtime, misc
 
 
-def getLogger(logLocation,verbose):
+def getLogger(logLocation,verbose,console=True,
+              format_='[%(levelname)s]:%(asctime)s: %(message)s',
+              logger_name='logger'):
 
     verbose = str(verbose)
 
     #Get a logger
-    logger = logging.getLogger('logger')
+    logger = logging.getLogger(logger_name)
     
     #We're going to be bad, and remove all handlers from this logger.
     #TODO: Rethink this one day.
@@ -1552,22 +1572,27 @@ def getLogger(logLocation,verbose):
 
     #Now we're going to make some new ones
     handlers = []
-    handlers.append(logging.StreamHandler(sys.stdout))
-    #if(len(logLocation) > 0):
-    #    handlers.append(logging.StreamHandler(open(logLocation,'a')))
+    if console:
+        handlers.append(logging.StreamHandler(sys.stdout))
+    if(len(logLocation) > 0):
+        handlers.append(logging.StreamHandler(open(logLocation,'a')))
+
+    if(verbose == '0' or str(verbose).lower() == 'warning'):
+        logger.setLevel(logging.WARNING)
+    elif(verbose == '1' or str(verbose).lower() == 'info'):
+        logger.setLevel(logging.INFO)
+    elif(verbose == '2' or str(verbose).lower() == 'debug'):
+        logger.setLevel(logging.DEBUG)
 
     for h in handlers:
-        h.setFormatter(logging.Formatter('[%(levelname)s]:%(asctime)s: %(message)s'))
+        h.setFormatter(logging.Formatter(format_))
 
         if(verbose == '0' or str(verbose).lower() == 'warning'):
             logger.setLevel(logging.WARNING)
-            h.setLevel(logging.WARNING)
         elif(verbose == '1' or str(verbose).lower() == 'info'):
             logger.setLevel(logging.INFO)
-            h.setLevel(logging.INFO)
         elif(verbose == '2' or str(verbose).lower() == 'debug'):
             logger.setLevel(logging.DEBUG)
-            h.setLevel(logging.DEBUG)
 
         logger.addHandler(h)
 
@@ -1604,5 +1629,29 @@ def newParamDict(params,element):
 
     return d
 
+def traj_format(config,pcs):
+    """traj_format
 
- 
+    Converts a configuration dict into a configuration formated as a string
+    for the ACLib trajectory file. Aslo removes any inactive parameters, as 
+    needed.
+
+    Parameters
+    ----------
+    config : dict
+        The configuration as a dictionary.
+    pcs : PCS.PCS
+        The parameter configuration space.
+
+    Returns
+    -------
+    config : str
+        The configuration formatted as a string as used in the ACLib traj.csv 
+        files.
+    """
+    config = pcsHelper.removeInactive(pcs, config)
+    params = sorted(list(config.keys()))
+    config_string = ''
+    for p in params:
+        config_string = "{},{}='{}'".format(config_string, p, config[p])
+    return config_string[1:]

@@ -1,4 +1,4 @@
-- Clean up output files and create incumbent trajectory to match ACLib's format
+- Clean up output files
 - Add validation to ensure that the wrapper actually runs properly.
 - Figure out why the logger isn't working correctly when logging to both locations.
 - Copy the instance file and pcs file to the output location
