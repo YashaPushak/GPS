@@ -27,6 +27,20 @@ class ArgumentParser:
                 'help': 'The directory where output will be stored. The actual directory for a particular'
                         'GPS run with ID gps_id will be stored in {experiment-dir}/{output-dir}/gps-run-{gps_id}',
                 'type': str},
+            ('--temp-dir', '--temp', '--temporary-directory'): {
+                'help': 'The directory for GPS to use to write temporary files to. By default, GPS will '
+                        'write all temporary files to the current working directory (i.e., the experiment-dir. '
+                        'GPS will also clean up all such temporary files when it is done with them, unless GPS '
+                        'crashes unexpectedly. GPS will create a single temporary file for every target '
+                        'algorithm run, which means that it will create and delete and large number of these '
+                        'files. It is therefore strongly recommended to use a directory with a fast filesystem '
+                        'that is not automatically backed up. In some cases, GPS and other algorithm '
+                        'configurators with similar behaviour have been known to unneccesarily stress file '
+                        'systems with automatic back-ups due to the volume of temporary files created and '
+                        'deleted. If this happens, the quality of the configurations found with GPS (when '
+                        'using a wall clock budget) may suffer substantially, as well as any other person or '
+                        'system that interacts with the filesystem.',
+                'type': str},
             ('--verbose', '--verbosity', '--log-level', '-v'): {
                 'help': 'Controls the verbosity of GPS\'s output. Set of 0 for warnings only. Set to '
                         '1 for more informative messages. And set to 2 for debug-level messages. The '

@@ -348,7 +348,7 @@ def updateBracket(gpsID,p,pts,ptns,paramType,alg,logger,R):
                 oldPts,oldPtns,oldAlg = getBracket(gpsID,p,pipe)
                 logger.debug("oldPts = " + str(oldPts))
                 logger.debug("oldPtns = " + str(oldPtns))
-                logger.debug("runs = " + str(runs)) 
+                #logger.debug("runs = " + str(runs)) 
 
                 pipe.multi()
 
