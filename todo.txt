@@ -1,4 +1,4 @@
-- Fix location of worker and master output files (*.pkl and log)
+- Clean up output files and create incumbent trajectory to match ACLib's format
 - Add validation to ensure that the wrapper actually runs properly.
 - Figure out why the logger isn't working correctly when logging to both locations.
 - Copy the instance file and pcs file to the output location
@@ -6,5 +6,7 @@
   the target algorithm output files.
 - Improve the documentation for the installation instructions.
 - Redirect standard error to the target algorithm output files.
+- Add post-processing to extract the best configuration that was evaluated.
 - Create documentation for the parameters other than from running GPS with --help.
-- Add support for solution quality optimization?
+- Add support for solution quality optimization
+- Convert to python3

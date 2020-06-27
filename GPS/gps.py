@@ -1225,7 +1225,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                 logger.debug("Done running the task.")
                 logger.debug('Result: {}, {}, {}'.format(res,runtime,misc))
 
-                runTrace.append((startTime,endTime,task))
+                runTrace.append((startTime,endTime,task,res,runtime,misc))
 
                 if(runtime == 0 and not cutoffi == 0):
                     logger.debug("The running time was 0, but the cutoff was not.")
