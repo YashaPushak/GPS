@@ -114,6 +114,7 @@ def gps(arguments, gpsID):
     host = arguments['redis_host']
     port = arguments['redis_port']
     dbid = arguments['redis_dbid']
+    temp = arguments['temp_dir']
     verbose = arguments['verbose']
 
     # Scenario Arguments
@@ -1156,6 +1157,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
     host = arguments['redis_host']
     port = arguments['redis_port']
     dbid = arguments['redis_dbid']
+    temp = arguments['temp_dir']
     verbose = arguments['verbose']
 
     # Scenario Arguments
@@ -1233,7 +1235,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                     #so that we save time by adjusting our cap, and then when we
                     #are done we multiply the penalty factor back in to reflect
                     #the penalized running time. 
-                    res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,logger)
+                    res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,temp,logger)
                     runtime = runtime*regFactor
                     cutoffi = cutoffi*regFactor
 
@@ -1258,24 +1260,26 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
                 logger.debug("Updating the budget")
                 updateBudget(gpsID,timeSpent,R)
+                new_task = True
 
             #Else, if there is not a task, sleep for a short period of time.
             else:
-                logger.debug("There was no task to run, so we are sleeping for " + str(sleepTime) + " CPU seconds.")
+                #logger.debug("There was no task to run, so we are sleeping for " + str(sleepTime) + " CPU seconds.")
                 time.sleep(sleepTime)
+                new_task = False
 
             if(time.clock() - lastCPUTime > 5):
                 lastCPUTime = updateCPUTime(gpsID,lastCPUTime,R)
 
-
-            logger.debug("Checking for a new task.")        
+            if new_task:
+                logger.debug("Checking for a new task.")        
             #Query the database for a task, calculate the adaptive cap for the task,
             #and then enter the task into a list of tasks that are currently being processed
             #set the entry to expire after double the task's adaptive cap.
             task, budget, curRunID = redisHelper.fetchTaskAndBudget(gpsID,cutoff,prange,decayRate,boundMult,minInstances,R,logger)
-            logger.debug("Done Fetching.") 
-
-            logger.debug("Checking if the budget has been exhausted.")
+            if new_task:
+                logger.debug("Done Fetching.") 
+                logger.debug("Checking if the budget has been exhausted.")
             #Check the budget status.
             done = time.time() - budget['startTime'] >= budget['wall']
             done = done or budget['totalCPUTime'] >= budget['cpu']
@@ -1311,7 +1315,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
 
 
-def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,logger):
+def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logger):
     #Author: YP
     #Created: 2018-04-10
     #Last updated: 2019-03-06
@@ -1361,7 +1365,7 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,logger):
             return res, runtime, misc, timeSpent, capType, cutoffi
         logger.info("GPS is running out of time; attempting one more target algorithm run using the remaining budget of " + str(cutoffi) + " seconds...")
                     
-    res, runtime, misc = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSlaveID) + '-' + runID + '-' + p)
+    res, runtime, misc = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSlaveID) + '-' + runID + '-' + p, temp)
 
     if(res == 'SUCCESS'):
         if(runtime == float('inf')):
@@ -1497,17 +1501,17 @@ def setStartPoints(p0,pmin,pmax):
 
 
 
-def runInstance(logger, wrapper, params, inst, inst_spec, seed, cutoff, runlength, runId='r0', runDir = '.'):
+def runInstance(logger, wrapper, params, inst, inst_spec, seed, cutoff, 
+                runlength, runId='r0', temp = '.'):
     #Runs the target algorithm on the specified instance.
     
-    outputFile = runDir + '/log-' + runId + '.log'
+    outputFile = temp + '/log-' + runId + '.log'
 
     paramString = getParamString(params)
 
-    cmd = 'cd ' + runDir + '; ' + wrapper + ' ' + str(inst) + ' ' + str(inst_spec) + ' ' + str(cutoff) + ' ' + str(runlength) + ' ' + str(seed) + ' ' + paramString + ' > ' + outputFile
-
+    cmd = wrapper + ' ' + str(inst) + ' ' + str(inst_spec) + ' ' + str(cutoff) \
+          + ' ' + str(runlength) + ' ' + str(seed) + ' ' + paramString + ' > ' + outputFile
     logger.debug(cmd)
-
     os.system(cmd)
 
     return readOutputFile(outputFile)
