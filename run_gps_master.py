@@ -34,6 +34,7 @@ with helper.cd(arguments['experiment_dir']):
     # this particular GPS run. If this directory already exists, rename it to
     # something else
     output_dir = '{}/gps-run-{}'.format(arguments['output_dir'], gpsID)
+    arguments['output_dir'] = output_dir
     moved = False
     if helper.isDir(output_dir):
         random_id = helper.generateID()
