@@ -137,6 +137,12 @@ def isRunning(gpsID,p,pt,inst,seed,R):
     return res is not None
 
 
+def updateLastFailedCommand(gpsID, cmd, R):
+    R.set('lastFailedCommand:' + str(gpsID), cmd)
+
+def getLastFailedCommand(gpsID, R):
+    return R.get('lastFailedCommand:' + str(gpsID))
+
 
 def getAllAlive(gpsID,p,pts,ptns,logger,R):
     #Author: YP
