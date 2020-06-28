@@ -181,6 +181,12 @@ class ArgumentParser:
                         'default is 1.',
                 'type': _validate(int, 'The minimum workers must be a non-negative integer', 
                                   lambda x: int(x) >= 0)},
+            ('--share-instance-order',): {
+                'help': 'GPS randomizes the order in which the configurations are evaluated on instances. Each '
+                        'parameter search process can either share an instance ordering or not. In the original '
+                        'version of GPS the instance ordering was shared, but we suspect it will slightly '
+                        'improve the performance to do otherwise, so the default is False.',
+                'type': _validate(_to_bool, "Share instance order must be 'True' or 'False'")},
         }
         
         self.argument_groups = {'Setup Arguments': self.setup_arguments,
@@ -326,8 +332,7 @@ class ArgumentParser:
         # user will have already been included with default values)
         self._validate_all_arguments_defined(arguments)
         # Make sure all of the files and directories can be found
-        # As a side effect, this will also create the output directory if it doesn't exist
-        _validate_scenario_files(arguments)
+        _validate_files_and_directories(arguments)
         # Make sure GPS's budget was set
         _validate_budget(arguments)
 
@@ -404,7 +409,7 @@ def _validate(types, message=None, valid=lambda x: True):
         return input_       
     return _check_valid
         
-def _validate_scenario_files(arguments):
+def _validate_files_and_directories(arguments):
     with helper.cd(arguments['experiment_dir']):
         files = ['pcs_file', 'instance_file']
         for filename in files:            
@@ -413,6 +418,14 @@ def _validate_scenario_files(arguments):
                               "directory '{}' (which is the experiment directory, if one was "
                               "specified)."
                               "".format(filename.replace('_', ' '), arguments[filename], os.getcwd()))
+        directories = ['temp_dir']
+        for directory in directories:            
+            if not helper.isDir(arguments[directory]):
+                raise IOError("The {} '{}' could not be found within GPS's current working "
+                              "directory '{}' (which is the experiment directory, if one was "
+                              "specified)."
+                              "".format(directory.replace('_', ' '), arguments[directory], os.getcwd()))
+
 
 def _validate_bound_multiplier(bm):
     not_valid = False
@@ -439,6 +452,14 @@ def _validate_budget(arguments):
         raise ValueError('At least one of runcount_limit and wallclock_limit must be less than '
                          'the maximum integer value (which is their default value).')
 
+def _to_bool(string):
+    if string == 'True':
+       return True
+    elif string == 'False':
+        return False
+    else:
+        raise ValueError("Booleans must be 'True' or 'False'. Provided {}".format(string))
+    
 def _get_aliases(names):
     aliases = []
     for name in names:

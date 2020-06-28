@@ -137,6 +137,7 @@ def gps(arguments, gpsID):
     multipleTestCorrection = False
     banditQueue = 'incumbent'
     sleepTime = arguments['sleep_time']
+    shareInstanceOrder = arguments['share_instance_order']
 
     # Get a logger
     logger = getLogger('{}/gps.log'.format(logLocation), verbose)
@@ -202,7 +203,14 @@ def gps(arguments, gpsID):
         s = initializeSeed(s)
        
         #Run the instances in a random order for now. Though this might benefit from adapting the idea from Style et al.'s ordered racing procedure.
+        instance_sets = {}
         random.shuffle(insts)
+        print('Sharing instance order? {}'.format(shareInstanceOrder))
+        for p in params:
+            instance_sets[p] = cp.deepcopy(insts)
+            if not shareInstanceOrder:   
+                random.shuffle(instance_sets[p])
+        insts = instance_sets
 
         #TODO: Refactor to pull out initialization of data.
         decisionSeq = []
@@ -243,10 +251,7 @@ def gps(arguments, gpsID):
         #to be updated.
         alg = newParamDict(params,alg)
 
-        #All parameters will share a random seed for the first instance, so that they can all share the same
-        #run of the default configuration
-        firstSeed = random.randrange(100000000, 999999999)
-        #firstSeed = 100001
+        prevIncInsts = {} #newParamDict(params,[(insts[0],firstSeed)])
 
         a = {}
         b = {}
@@ -266,28 +271,27 @@ def gps(arguments, gpsID):
                 redisHelper.initializeBracket(gpsID,p,prange[p],prange[p],paramType[p],alg[p],R)
                 redisHelper.saveIncumbent(gpsID,p,p0[p],0,cutoff*10,R)
     
+
             #Perform a small number of initial runs so that we don't immediately make decisions that over-fit to random noise.
             for j in range(0,minInstances):
-                j %= len(insts)
-                if(j == 0):
-                    #All parameters share the same random seed for the first instance, so that they can also
-                    #share the same run of the default configuration.
-                    instSet[p].append((insts[j],firstSeed))
-                else:
-                    instSet[p].append((insts[j],random.randrange(100000000, 999999999)))
-                    #instSet[p].append((insts[j],100001 + j))
+                j %= len(insts[p])
+                seed = random.randrange(100000000, 999999999)
+                instSet[p].append((insts[p][j], seed))
+                if j == 0:
+                    #Initially, all of the incumbents have only been run on the first instance    
+                    #(not that this has necessarily finished yet, but we require the new incumbents 
+                    #to be runs on a non-strict super-set, so it is okay to pretend like it has been 
+                    #finished).
+                    prevIncInsts[p] = [(insts[p][j], seed)]
+
             instanceCounter[p] += minInstances
             instanceSeedCounter[p] += minInstances
-            instanceCounter[p] %= len(insts)
- 
+            instanceCounter[p] %= len(insts[p])
+
+        # Count the number of default configuration runs that failed
+        failed_count = 0 
         #Queue the default value for each parameter.          
         runDefault(params,p0,a,b,c,d,prange,paramType,instSet,gpsID,R,logger)
-
-        #Initially, all of the incumbents have only been run on the first instance    
-        #(not that this has necessarily finished yet, but we require the new incumbents 
-        #to be runs on a non-strict super-set, so it is okay to pretend like it has been 
-        #finished).
-        prevIncInsts = newParamDict(params,[(insts[0],firstSeed)])
 
         finishedDefault = newParamDict(params,False)
     
@@ -336,10 +340,21 @@ def gps(arguments, gpsID):
             for p in selectedParams:
                 pts, ptns = getPtsPtns(p,paramType,prange,a,c,b,d)
 
-                finishedDefault = isDoneDefault(p,finishedDefault,gpsID,ptns,R,logger)
+                finishedDefault, failed_run = isDoneDefault(p,finishedDefault,gpsID,ptns,R,logger)
                 if(not finishedDefault[p]):
                     #logger.debug("Not yet done the default for " + str(p))
                     continue
+                elif failed_run:
+                    failed_count += 1
+                    if failed_count == len(params):
+                        logger.error('The first configuration run performed for each parameter failed. '
+                                     'This could be because the running time cutoff is too small,  '
+                                     'because there is a bug in the wrapper or because the wrapper did not '
+                                     'return output in the format expected by GPS.')
+                        logger.error('Please try running the wrapper yourself from {} to debug the issue. '
+                                     'This is an example of one of the failed command line calls: \n{}'
+                                     ''.format(os.getcwd(), redisHelper.getLastFailedCommand(gpsID,R)))
+                        raise Exception('Target algorithm wrapper failed too many times.')
 
                 #logger.debug("Checking on parameter " + p)
                 #Poll the current stat of the queue
@@ -476,10 +491,10 @@ def gps(arguments, gpsID):
                         #Add instIncr new instances to the instance set.
                         for k in range(0,instIncr):
                             #instSet[p].append((insts[instanceCounter[p]],100001 + instanceSeedCounter[p]))
-                            instSet[p].append((insts[instanceCounter[p]],random.randrange(100000000, 999999999)))
+                            instSet[p].append((insts[p][instanceCounter[p]],random.randrange(100000000, 999999999)))
                             instanceCounter[p] += 1
                             instanceSeedCounter[p] += 1
-                            instanceCounter[p] %= len(insts)
+                            instanceCounter[p] %= len(insts[p])
                         #queues runs on all of the points as needed until:
                         # - each point has been run on at least minInstances instances or has been eliminated by the adpative cap; AND
                         # - there is enough statistical evidence to make a decision about what operation to make next; OR
@@ -519,10 +534,10 @@ def gps(arguments, gpsID):
                             #instSet[p].append((insts[instanceCounter[p]],100001 + instanceSeedCounter[p]))
                             #logger.debug(instanceCounter)
                             #logger.debug(insts)
-                            instSet[p].append((insts[instanceCounter[p]],random.randrange(100000000, 999999999)))
+                            instSet[p].append((insts[p][instanceCounter[p]],random.randrange(100000000, 999999999)))
                             instanceCounter[p] += 1
                             instanceSeedCounter[p] += 1
-                            instanceCounter[p] %= len(insts)
+                            instanceCounter[p] %= len(insts[p])
                         #queues runs on all of the points as needed until:
                         # - each point has been run on at least minInstances instances or has been eliminated by the adpative cap; AND
                         # - there is enough statistical evidence to make a decision about what operation to make next; OR
@@ -921,18 +936,26 @@ def isDoneDefault(p,finishedDefault,gpsID,ptns,R,logger):
     #correctly return true. We also maintain the parameter dict finishedDefault so that we
     #can memorize the answer so that we aren't constantly requesting the latest runs from the
     #redis server after the answer is yes (since it will forever after remain yes).
+    #failed_run is True if and only if the first run failed and this was the first time that
+    #we checked to see if this run is complete.
 
+    failed_run = False
+    failed_config = {}
     if(finishedDefault[p]):
-        return finishedDefault
+        return finishedDefault, failed_run
 
     runs = redisHelper.getRuns(gpsID,p,ptns,R)
     done = False
     for ptn in runs.keys():
-        done = len(runs[ptn]) >= 1 or done 
+        done = len(runs[ptn]) >= 1
+        if done:
+            instance = runs[ptn].keys()[0]
+            run_status = runs[ptn][instance][2] 
+            failed_run = run_status != 'SUCCESS'
+            break
 
     finishedDefault[p] = done
-
-    return finishedDefault
+    return finishedDefault, failed_run
 
 
 
@@ -1180,6 +1203,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
     multipleTestCorrection = False
     banditQueue = 'incumbent'
     sleepTime = arguments['sleep_time']
+    shareInstanceOrder = arguments['share_instance_order']
 
     params,paramType,p0,prange,pcs = loadPCS(pcsFile)
 
@@ -1235,9 +1259,17 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                     #so that we save time by adjusting our cap, and then when we
                     #are done we multiply the penalty factor back in to reflect
                     #the penalized running time. 
-                    res, runtime, misc, timeSpent, capType, cutoffi = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,temp,logger)
+                    res, runtime, misc, timeSpent, capType, cutoffi, cmd = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,temp,logger)
                     runtime = runtime*regFactor
                     cutoffi = cutoffi*regFactor
+
+                if res != 'SUCCESS' and cmd != '':
+                    # Store the last failed command line call for debugging purposes.
+                    # In some cases, the run will not be successful, but no comamnd line call
+                    # was even made (for example, because of an adaptive cap of 0, or a budget 
+                    # time out). In these cases, the command returned is the empty string, so
+                    # we don't record this command in these cases.
+                    redisHelper.updateLastFailedCommand(gpsID,cmd,R)
 
                 endTime = time.time()
                 logger.debug("Done running the task.")
@@ -1254,7 +1286,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                 if(not (capType == 'Budget Cap' and res == 'BUDGET-TIMEOUT')):
                     #Store the results back in the database
                     logger.debug("Storing the results back in the database.")
-                    curRunID = updateRunResults(gpsID,task['p'],task['pt'],task['inst'],task['seed'],res,runtime,timeSpent,task['alg'],cutoffi,oldRunID,prange,paramType,logger,R)#JUMP0
+                    curRunID = updateRunResults(gpsID,task['p'],task['pt'],task['inst'],task['seed'],res,runtime,timeSpent,task['alg'],cutoffi,oldRunID,prange,paramType,logger,R)
                 else:
                     logger.debug("This run caused us to exceed the budget, so we will discard the results.")
 
@@ -1340,7 +1372,7 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
         runtime = cutoff*10
         timeSpent = 0
         misc = capType + ': ' + str(cutoffi) + ' CPU Seconds'
-        return res, runtime, misc, timeSpent, capType, cutoffi
+        return res, runtime, misc, timeSpent, capType, cutoffi, ''
 
     budgetCensor = False
     if(cutoffi + time.time() - budget['startTime'] > budget['wall']):
@@ -1362,10 +1394,10 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
             timeSpent = 0
             misc = capType + ': ' + str(cutoffi) + ' CPU Seconds'
 
-            return res, runtime, misc, timeSpent, capType, cutoffi
+            return res, runtime, misc, timeSpent, capType, cutoffi, ''
         logger.info("GPS is running out of time; attempting one more target algorithm run using the remaining budget of " + str(cutoffi) + " seconds...")
                     
-    res, runtime, misc = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSlaveID) + '-' + runID + '-' + p, temp)
+    res, runtime, misc, cmd = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSlaveID) + '-' + runID + '-' + p, temp)
 
     if(res == 'SUCCESS'):
         if(runtime == float('inf')):
@@ -1410,7 +1442,7 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
     
     misc += ' - ' + capType + ': ' + str(cutoffi) + ' CPU Seconds'
 
-    return res, runtime, misc, timeSpent, capType, cutoffi
+    return res, runtime, misc, timeSpent, capType, cutoffi, cmd
 
   
 
@@ -1514,7 +1546,7 @@ def runInstance(logger, wrapper, params, inst, inst_spec, seed, cutoff,
     logger.debug(cmd)
     os.system(cmd)
 
-    return readOutputFile(outputFile)
+    return readOutputFile(outputFile) + (cmd,)
     
 
 def readOutputFile(outputFile):
