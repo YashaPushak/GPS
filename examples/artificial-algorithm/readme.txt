@@ -43,15 +43,16 @@ mistakes due to a small number of runs of high-quality configurations that get i
 rejected because they exceeded their running time cutoff. When this happens in GPS, it can
 eliminate an entire region of the configuration space that contains the global optimum.
 For this scenario, you should see that GPS finds configurations within 1% of optimal
-about 64% of the time and it should find confiugrations within 10% of optimal about 27% of
-the time. You may also observe that in about 9% of the runs, GPS appears to completely
-miss high quality values for some of the parameters. These can be attributed to GPS
-observing such unlucky runs and incorrectly rejecting high quality regions of the 
-configuration space. If you try decreasing the running time cutoff used by GPS in this 
-scenario from 10 minutes to 5 minutes, you will notice that the fraction of times GPS
-yeilds poor results will increase substantially. As a result, it is never a bad idea to
-perform 10-20 runs of your target algorithm with the default configuration on randomly 
-chosen training instances prior to choosing the running time cutoff. 
+about 75% of the time and it should find confiugrations within 10% of optimal about 85% of
+the time. In the remaining 15% of the runs, GPS appears to either completely miss high
+quality values for some of the parameters, or it rejects them after first finding them.
+These can be attributed to GPS observing unlucky runs and incorrectly rejecting high 
+quality regions of the configuration space. If you try decreasing the running time cutoff 
+used by GPS in this scenario from 10 minutes to 5 minutes, you will notice that the 
+fraction of times GPS yeilds poor results will increase substantially. As a result, it is
+never a bad idea to perform 10-20 runs of your target algorithm with the default 
+configuration on randomly chosen training instances prior to choosing the running time 
+cutoff. 
 
 Given enough time, GPS should be able to recover from these kind of mistakes;
 however, we instead recommend to always perform at least 3 independent runs of GPS,
