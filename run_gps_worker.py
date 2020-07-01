@@ -53,7 +53,7 @@ with helper.cd(arguments['experiment_dir']):
 
     if(not cancel):
         logger.info("GPS worker process is starting.")
-        runTrace = gps.gpsSlave(arguments, gps_worker_id, gpsID)
+        gps.gpsSlave(arguments, gps_worker_id, gpsID)
     else:
         logger.info("Recieved signal to cancel.")
 

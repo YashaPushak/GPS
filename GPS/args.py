@@ -187,12 +187,64 @@ class ArgumentParser:
                         'version of GPS the instance ordering was shared, but we suspect it will slightly '
                         'improve the performance to do otherwise, so the default is False.',
                 'type': _validate(_to_bool, "Share instance order must be 'True' or 'False'")},
+            ('--post-process-incumbent',): {
+                'help': 'GPS can make some mistakes. Most often, these will simply cause GPS to avoid high-'
+                        'quality regions of the configuration space. However, in the presence of parameter '
+                        'interactions some mistakes can cause GPS to return worse incumbents when given a '
+                        'larger budget. This is because GPS can update the incumbent to a configuration which '
+                        'has never been evaluated before. Given enough time, GPS should typically be able to '
+                        'recover from these situations. However, if the configuration run is terminated shortly '
+                        'after such an update, GPS may return a poor quality incumbent configuration. By '
+                        'enabling this feature, GPS will automatically post-process all of the recorded '
+                        'target algorithm runs and select the configuration which exhibits the best performance '
+                        'on the largest number of instances. This post processing is an experimental method for '
+                        'post-processing the output from one or more GPS runs to help protect against these '
+                        'kinds of mistakes made by GPS. However, preliminary results testing this method '
+                        'currently indicates that it typically decreases the performance of the incumbents '
+                        'returned by GPS. Should be \'True\' or \'False\'. The default is \'False\'.'
+                'type': _validate(_to_bool, "The post-process-incumbent parameter must be 'True' or 'False'")}, 
+        }
+
+        self.postprocess_parameters = {
+            ('--post-process-min-runs', '--post-process-min-instances'): {
+                'help': 'The minimum number of unique instances on which the intersection of the incumbent and '
+                        'a challenger must have been evaluated in order for a challenger to be considered in '
+                        'GPS\'s optional post-processing, incumbent-selection phase.',
+                'type': _validate(int, 'The post-process-min-runs parameter must be a positive integer greater '
+                                       'than 4', lambda x: int(x) >= 5)},
+            ('--post-process-alpha', '--post-process-significance-level'): {
+                'help': 'The significance level used in the permutation tests performed during GPS\'s optional '
+                        'incumbent post-processing procedure. Unlike the alpha parameter used by GPS\'s main '
+                        'procedure, multiple test correction is enabled by default, so this can be viewed as '
+                        'the actual significance level of the statistical tests performed, rather than as a '
+                        'heuristic. As a result, it is not unreasonable to set the main alpha parameter to a '
+                        'larger value than this one -- especially if multiple independent runs of GPS are '
+                        'performed. Should be in (0, 0.25]. The default is 0.05. ',
+                'type': _validate(float, 'The post-process-alpha parameter must be a float in (0, 0.25]',
+                                  lambda x: 0 < float(x) <= 0.25)},
+            ('--post-process-n-permutations', '--post-process-number-of-permutations'): {
+                'help': 'The number of permutations performed by the permutation test of the during GPS\'s '
+                        'optional incumbent post-processing procedure. Recommended to be at least 10000 to '
+                        'obtain stable permutation test results. Set it higher if you are using a smaller '
+                        'significance level or are performing the procedure on many combined, independent '
+                        'GPS runs, as the significance level will be smaller in such cases in order to '
+                        'perform multiple test correction. Must be a positive integer greater than 1000. '
+                        'The default is 10000.',
+                'type': _validate(int, 'The post-process number of permutations parameter must be a positive '
+                                       'integer greater than 1000.', lambda x: int(x) > 1000)},
+            ('--post-process-multiple-test-correction', ): {
+                'help': 'Determines whether or not multiple test correction is used during GPS\'s optional '
+                        'incumbent post-processing procedure. Must be \'True\' or \'False\'. The default is '
+                        '\'True\'.',
+                'type': _validate(_to_bool, "The post-process multiple test correction parameter must be "
+                                            "'True' or 'False'")},
         }
         
         self.argument_groups = {'Setup Arguments': self.setup_arguments,
                                 'Redis Arguments': self.redis_arguments,
                                 'Scenario Arguments': self.scenario_arguments,
-                                'GPS Parameters': self.gps_parameters}
+                                'GPS Parameters': self.gps_parameters,
+                                'Post-Process Parameters': self.postprocess_parameters}
         # Location of the GPS source code directory
         gps_directory = os.path.dirname(os.path.realpath(inspect.getfile(inspect.currentframe())))
         # File with hard-coded default values for all (optional) GPS parameters

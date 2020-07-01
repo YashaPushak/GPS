@@ -213,14 +213,24 @@ def genLogSpace(limit, n):
 
 #Code taken from http://stackoverflow.com/questions/19201290/how-to-save-a-dictionary-to-a-file
 
-def saveObj(dir, obj, name ):
-    with open(dir + '/'+ name + '.pkl', 'wb') as f:
+def saveObj(dir_, obj, name ):
+    with open(dir_ + '/'+ name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
-def loadObj(dir, name ):
-    with open(dir + '/' + name + '.pkl', 'rb') as f:
+def loadObj(dir_, name ):
+    if isFile(dir_ + '/' + name + '.pkl'):
+        filename = dir_ + '/' + name + '.pkl'
+    elif isFile(dir_ + '/' + name):
+        filename = dir_ + '/' + name 
+    elif isFile(name + '.pkl'):
+        filename = name + '.pkl'
+    elif isFile(name):
+        filename = name
+    else:
+        raise IOError("Could not find file '{}' in '{}' or current working directory with or without a "
+                      ".pkl extension.".format(name, dir_))
+    with open(filename, 'rb') as f:
         return pickle.load(f)
-
 
 def softmax(z):
     #Author: Yasha pushak

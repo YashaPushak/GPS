@@ -1,6 +1,5 @@
 - Copy the instance file and pcs file to the output location
 - Improve the documentation for the installation instructions.
-- Add post-processing to extract the best configuration that was evaluated.
 - Create documentation for the parameters other than from running GPS with --help.
 - Add support for solution quality optimization
 - Convert to python3
