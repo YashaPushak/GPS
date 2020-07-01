@@ -6,6 +6,7 @@ from GPS import gps
 from GPS import redisHelper
 from GPS import helper
 from GPS import args
+from GPS import postProcess
 
 # Parse the command line arguments, then, if provided, parse the arguments in 
 # the scenario file. Then adds default values for paramaters without definitions
@@ -93,9 +94,41 @@ with helper.cd(arguments['experiment_dir']):
                     "".format(readyCount, arguments['minimum_workers']))     
    
         logger.info("GPS Master process is starting.") 
-        pbest, decisionSeq, incumbentTrace = gps.gps(arguments, gpsID)
+        pbest, decisionSeq, incumbentTrace, cpuTime, wallTime = gps.gps(arguments, gpsID)
+        end_master_time = time.time()
         R.set('incumbent:' + str(gpsID),pbest)
     finally:
         R.set('cancel:' + str(gpsID),'True')
     
-    
+    if arguments['post_process_incumbent']:
+        logger.info('Beginning GPS post-processing of configuration runs to select as the incumbent the '
+                    'configuration that has the best performance on the largest number of instances. This '
+                    'should only take a few seconds and helps protect against mistakes made by GPS due to '
+                    'parameter interactions.')
+        # Create a new post-processing selector
+        selector = postProcess.Selector(
+            min_instances=arguments['post_process_min_runs'],
+            alpha=arguments['post_process_alpha'],
+            n_permutations=arguments['post_process_n_permutations'],
+            multiple_test_correction=arguments['post_process_multiple_test_correction'],
+            logger=logger)
+        # Add the data from the current scenario
+        logger.info(arguments['output_dir'])
+        selector.add_scenarios(arguments['output_dir'])
+        # And select the best configuration
+        incumbent, num_runs, estimated_runtime = selector.extract_best()
+        logger.info("The final incumbent after post-processing all of the configuration runs was evaluated "
+                    " on {0} unique instances and has an estimated running time of {1:.2f} seconds."
+                    "".format(num_runs, estimated_runtime))
+        logger.info("Final Incumbent: {}".format(incumbent))
+        if gps.getParamString(pbest) != incumbent:
+            incumbent_logger = gps.getLogger(arguments['output_dir'] + '/traj.csv', verbose=1, console=False,
+                                     format_='%(message)s', logger_name='incumbent_logger_post_process')
+            incumbent_logger.info('{cpu_time},{train_perf},{wall_time},{inc_id},{ac_time},{config}'
+                                  ''.format(cpu_time=cpuTime,
+                                            train_perf=estimated_runtime,
+                                            wall_time=wallTime + time.time() - end_master_time,
+                                            inc_id=-1,
+                                            ac_time=-1,
+                                            config=incumbent.replace(' -',',').replace(' ','=')[1:]))
+     

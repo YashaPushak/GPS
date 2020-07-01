@@ -11,7 +11,7 @@ import gps
 class Selector:
 
     def __init__(self, min_instances=10, alpha=0.05, n_permutations=10000,
-                 multiple_test_correction=True, verbose=1):
+                 multiple_test_correction=True, logger=None, verbose=1):
         self._min_instances = min_instances
         self._alpha = alpha
         self._test_corrections = 1
@@ -25,8 +25,11 @@ class Selector:
         self._seeds = []
         self._runtimes = []
         self._ids = []
-        self._logger = gps.getLogger('', verbose, console=True, 
-                                     logger_name=helper.generateID())
+        if logger is None:
+            self._logger = gps.getLogger('', verbose, console=True, 
+                                         logger_name=helper.generateID())
+        else:
+            self._logger = logger
 
     def add_scenarios(self, scenarios):
         """add_scenarios
@@ -49,11 +52,23 @@ class Selector:
                 raise ValueError('Each scenario in scenario must be a valid '
                                  'directory reachable from {}. Provided {}.'
                                  ''.format(os.getcwd(), scenario))
-            for run_trace in glob.glob(scenario + '/run-trace-gps-worker-*.pkl'):
+            for run_trace in glob.glob(scenario + '/run-trace-*.csv'):
                 self._add_trace(run_trace)
 
     def _add_trace(self, run_trace_file):
-        trace = helper.loadObj('', run_trace_file[:-4])
+        trace = pd.read_csv(run_trace_file, index_col=None, header=0)
+        # If the status was ADAPTIVE-CAP-TIMEOUT or 
+        # BUDGET-TIMEOUT, we don't want to include the run
+        # because there is no clear value to use for its
+        # running time.  
+        trace = trace[trace['result_status'].isin(['SUCCESS', 'CUTOFF-TIME', 'CRASHED'])]
+        trace['ID'] = trace['parameter_string'].map(self._get_id)
+        self._instances.extend(list(trace['instance'].astype(str)))
+        self._seeds.extend(list(trace['seed'].astype(int)))
+        self._runtimes.extend(list(trace['runtime'].astype(float)))
+        self._ids.extend(list(trace['ID'].astype(int))) 
+
+    def _add_old_trace(self, run_trace_file):
         instances = []
         seeds = []
         runtimes = []
@@ -79,7 +94,13 @@ class Selector:
         self._ids.extend(ids) 
 
     def _get_id(self, config):
-        parameter_string = gpsHelper.getParamString(config) 
+        if isinstance(config, dict):
+            parameter_string = gpsHelper.getParamString(config) 
+        elif isinstance(config, str):
+            parameter_string = config
+        else:
+            raise ValueError('The configuration must be either a string or a '
+                             'dict. Provided {}.'.format(config))
         if parameter_string not in self._configs_to_ids:
             self._configs_to_ids[parameter_string] = self._next_id
             self._ids_to_configs[self._next_id] = parameter_string
@@ -117,6 +138,8 @@ class Selector:
         num_runs : int
             The number of unique instances upon which the incumbent has been
             evaluated.
+        estimated_runtime : float
+            The estimated running time of the incumbent configuration.
         """
         # Set the counter on the number of tests done so far to 0.
         self._test_corrections = 1
@@ -135,7 +158,8 @@ class Selector:
             # is better than the current incumbent
             if self._is_better(challenger, incumbent):
                 incumbent = challenger
-        return self._ids_to_configs[incumbent], num_runs[incumbent] 
+        estimated_runtime = self._data[self._data['id'] == incumbent]['runtime'].mean()
+        return self._ids_to_configs[incumbent], num_runs[incumbent], estimated_runtime
 
     def _is_better(self, challenger_id, incumbent_id):
         """_is_better

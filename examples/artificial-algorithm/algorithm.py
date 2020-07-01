@@ -102,7 +102,8 @@ try:
         result = 'TIMEOUT'
 
     misc = ('Miscellaneous extra data fro the run (ignored by GPS) '
-            '- deterministic running time {0:.4f}'.format(deterministic_runtime))
+            '- deterministic running time {0:.4f} - factor worse than optimal '
+            '{1:.10f}'.format(deterministic_runtime, deterministic_runtime/np.pi))
 
 except Exception as e:
     result = 'CRASHED'

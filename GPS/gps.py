@@ -205,7 +205,7 @@ def gps(arguments, gpsID):
         #Run the instances in a random order for now. Though this might benefit from adapting the idea from Style et al.'s ordered racing procedure.
         instance_sets = {}
         random.shuffle(insts)
-        print('Sharing instance order? {}'.format(shareInstanceOrder))
+        logger.debug('Sharing instance order? {}'.format(shareInstanceOrder))
         for p in params:
             instance_sets[p] = cp.deepcopy(insts)
             if not shareInstanceOrder:   
@@ -595,7 +595,7 @@ def gps(arguments, gpsID):
 
         logger.info('Final Incumbent: ' + getParamString(pbest))
 
-        return pbest, decisionSeq, incumbentTrace
+        return pbest, decisionSeq, incumbentTrace, budget['totalCPUTime'], time.time() - budget['startTime']
     except:
         logger.exception("exiting with failure")
         raise
@@ -1208,7 +1208,11 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
     params,paramType,p0,prange,pcs = loadPCS(pcsFile)
 
     R = redisHelper.connect(host,port,dbid)
-    runTrace = []
+    #runTrace = []
+    run_logger = getLogger(logLocation + '/run-trace-{}.csv'.format(gpsSlaveID), 
+                           verbose=1, console=False, logger_name='run_logger', format_='')
+    run_logger.info('instance,seed,result_status,runtime,solution_quality,parameter_string')
+
 
     logger = getLogger(logLocation + '/gps-worker-' + str(gpsSlaveID) + '.log',verbose)
 
@@ -1275,7 +1279,14 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                 logger.debug("Done running the task.")
                 logger.debug('Result: {}, {}, {}'.format(res,runtime,misc))
 
-                runTrace.append((startTime,endTime,task,res,runtime,misc))
+                run_logger.info('{instance},{seed},{result},{runtime},{quality},{parameter_string}'
+                                ''.format(instance=task['inst'],
+                                          seed=task['seed'],
+                                          result=res,
+                                          runtime=runtime,
+                                          quality=-1,
+                                          parameter_string=getParamString(task['alg']['params'])))
+                #runTrace.append((startTime,endTime,task,res,runtime,misc))
 
                 if(runtime == 0 and not cutoffi == 0):
                     logger.debug("The running time was 0, but the cutoff was not.")
@@ -1336,9 +1347,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
         logger.info(message)
 
-        helper.saveObj(logLocation,runTrace,'run-trace-gps-worker-' + str(gpsSlaveID))
-
-        return runTrace
+        #helper.saveObj(logLocation,runTrace,'run-trace-gps-worker-' + str(gpsSlaveID))
     except:
         logger.exception("exiting with failure")
         raise
