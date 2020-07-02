@@ -2,7 +2,7 @@
 
 This page aims at helping you to setup a simple local database.
 You can find more information on redis on their official website: [redis.io](https://redis.io)
-The configuration file provided is only a light modification of [the one provided with redis 6.0](https://raw.githubusercontent.com/antirez/redis/6.0/redis.conf)
+The configuration file provided is only a light modification of [the one provided with redis 5.0](https://raw.githubusercontent.com/antirez/redis/5.0/redis.conf)
 
 You first need to install redis. It is available on most systems, as well as on Anaconda.
 
