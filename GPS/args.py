@@ -591,7 +591,7 @@ def _print_argument_documentation():
         abreviations = ['e.g.', 'i.e.', 'etc.', 'vs.']
         for token in abreviations:
             content = content.replace(token, '<i>{}</i>'.format(token))
-        return token
+        return content
 
     argument_parser = ArgumentParser()
     defaults, _ = argument_parser.parse_file_arguments(argument_parser.defaults, {})
