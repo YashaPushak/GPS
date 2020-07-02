@@ -32,10 +32,11 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
    * [Table of Contents](#table-of-contents)
    * [Installing GPS](#installing-gps)
    * [Quick Start Guide](#quick-start-guide)
+      * [Required Input](#required-input)
       * [Example command line call for GPS](#example-command-line-call-for-gps)
       * [Using a Scenario file](#using-a-scenario-file)
       * [Experiment Directory](#experiment-directory)
-      * [Temporary File Directory - <em>Important</em>](#temporary-file-directory---important)
+      * [Temporary File Directory - <strong>Important</strong>](#temporary-file-directory---important)
    * [Extended Usage Instructions](#extended-usage-instructions)
       * [Target Algorithm Wrapper](#target-algorithm-wrapper)
          * [Target Algorithm Wrapper Input](#target-algorithm-wrapper-input)
@@ -43,6 +44,7 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
       * [Instance File Format](#instance-file-format)
       * [Parameter Configuration Space File Format](#parameter-configuration-space-file-format)
          * [Conditional Parameters](#conditional-parameters)
+         * [Example Configuration Space](#example-configuration-space)
          * [Forbidden Statements](#forbidden-statements)
          * [Old Parameter Configuration Space Syntax](#old-parameter-configuration-space-syntax)
    * [Contact](#contact)
@@ -274,6 +276,9 @@ temporary file directories.
 
 # Extended Usage Instructions
 
+The following contains more detailed information about the input and
+output for GPS.
+
 ## Target Algorithm Wrapper
 
 When performing automated algorithm configuration, it is typical to use a
@@ -420,6 +425,47 @@ following syntax:
 GPS does not support other operators, for example `in` or `>`. If you need to 
 support this behaviour, you must create one child parameter for each value of
 the parameter parameter that should enable the child. 
+
+### Example Configuration Space
+
+The following configuration space is an extended version of the one used in the
+artificial algorithm example, designed to also illustrate conditional parameters.
+
+    # x0 is an integer-valued parameter. We're suggesting to GPS that it should 
+    # search values in the range [0, 20] and indicating that 2 is a good default
+    # value.
+    x0 integer [0, 20] [2]
+
+    # x1 is a real-valued parameter. We're suggesting to GPS that is should
+    # search values in the range [0, 20] and indicating that 3 is a good default
+    # value.
+    x1 real [0, 20] [3]
+
+    # heuristic is a categorical parameter. It can take on three values: a, b
+    # or c, which corresponds to three (fictional) heuristics that the 
+    # algorithm could use. We're indicating that c is a good default heuristic.
+    heuristic categorical {a, b, c} [c]
+
+    # sample_probability is a real-valued parameter. We're suggesting that to
+    # GPS that it should search values in the range [0, 1]. Note that GPS might
+    # actually try values outside of this range if it sees evidence that they
+    # might perform better. However, since this is a probability it probably
+    # doesn't make sense for these values outside of [0, 1] to be used. If this
+    # causes unexpected behaviour for your target algorithm, you should 
+    # validate the parameter values prior to running it. You can simply tell
+    # GPS that a configuration with an invalid value crashed. 
+    sample_probability real [0, 1] [0.05]
+
+    # This tells GPS that sample_probability is a conditional parameter, that
+    # is, that your target algorithm only uses this parameter when heuristic
+    # is set to a.
+    sample_probability | heuristic == a
+
+    # If your algorithm shares a child value for two or more values of a
+    # parent parameter, then you must create one copy of the child parameter
+    # for each value of the parent for which the child should be used.
+    sample_probability_copy real [0, 1] [0.05]
+    sample_probability_copy | heuristic == b
 
 ### Forbidden Statements
 
