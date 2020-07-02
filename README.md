@@ -81,6 +81,60 @@ The entire process should take less than 5 minutes to run (often 1-3 on our
 machines). See examples/artificial-algorithm/readme.txt for more details on
 the scenario and the expected output from GPS.
 
+### Target Algorithm Wrapper
+
+When performing automated algorithm configuration, it is typical to use a
+target algorithm wrapper that implements a particular interface between
+the algorithm configurator and the target algorithm. The target algorithm
+wrapper should be callable via a command line with a pre-defined argument
+format, and should output to the console the reuslt from the run, again
+using a predefined syntax for the response. The target algorithm wrapper
+is responsable for calling the target algorithm using the specified
+configuration on the specified instance, measuring the runing time or
+solution quality, and enforcing the running time cutoff. GPS uses the same
+interface as SMAC and ParamILS, which means that you can directly use any
+scenarios set up for use with the generic wrapper for algorithm 
+configuration available from https://github.com/automl/GenericWrapper4AC.
+
+The format for the wrapper command line calls must conform to the following:
+
+    wrapper_name instance_name instance_specifics running_time_cutoff run_length seed -a_parameter_name 'a_parameter_value' -another_parameter_name 'another_parameter_value' ...
+
+Currently, GPS does not support the instance-specific information or the
+run-length arguments. GPS will pass values 0 for both of these.
+
+The wrapper may output any amount of information to the command line. However,
+each call to the wrapper should produce exactly one line of output in the
+following format:
+
+   Result for GPS: run_status, runtime, solution_quality, miscellaneous_data
+
+GPS will also accept `Result for SMAC:` and `Result for ParamILS:` as the
+beginning of the line. 
+
+The `run_status` must be one of: `SUCCESS`, `CRASHED`
+or `TIMEOUT`. For historical reason, GPS will also treat `SAT` and `UNSAT` as
+`SUCCESS`, anything else will be treated as `CRASHED`.
+
+The `runtime` should be the running time spent by your target algorithm. This
+is the value that GPS uses as it's objective function. This is also the number
+used by GPS to update the CPU time spent on its CPU time configuration budget.
+If the run result is either `TIMEOUT` or `CRASHED`, GPS will still use this
+running time to appropriately update the time spent in the budget, but will 
+otherwise ignore the running time value, since it will penalize the 
+configuration in question for being unable to produce correct output (within
+the running time cutoff limit). 
+
+At this time, GPS does not support solution quality optimization and will 
+ignore the `solution_quality` field. 
+
+The `miscellaneous_data` field can contain any additional details about the 
+target algorithm run that you choose. GPS parses it as a string, but otherwise
+ignores this information. For backwards compatibility with other configurators,
+this field should not contain any commas.
+
+### Instance File Format
+
 ## Contact
 
 Yasha Pushak  
