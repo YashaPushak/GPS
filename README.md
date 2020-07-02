@@ -523,22 +523,29 @@ performance degradation for GPS.
 
 **Aliases**: `--scenario-file`, `--scenario_file`, `--scenarioFile`
 
-#### scenario-file
+| | |
+| --- | --- |
+| **scenario-file** |  GPS does not currently support forbidden statements. If there are combinations of parameter values that do not yield valid confiugraitons, then you can instead detect these configurations in your wrapper and return a `CRASHED` run status without bothering to call your target algorithm. However, if your forbidden statements are complex, then you may wish to choose a different algorithm configurator (e.g., SMAC), since GPS assumes that your target algorithm parameters do not interact strongly, and hence this could cause performance degradation for GPS.|
+| Required | Yes |
+| Default | None |
+| Aliases | `--scenario-file`, `--scenario_file`, `--scenarioFile` |
+| **scenario-file** |  GPS does not currently support forbidden statements. If there are combinations of parameter values that do not yield valid confiugraitons, then you can instead detect these configurations in your wrapper and return a `CRASHED` run status without bothering to call your target algorithm. However, if your forbidden statements are complex, then you may wish to choose a different algorithm configurator (e.g., SMAC), since GPS assumes that your target algorithm parameters do not interact strongly, and hence this could cause performance degradation for GPS.|
+| Required | Yes |
+| Default | None |
+| Aliases | `--scenario-file`, `--scenario_file`, `--scenarioFile` |
 
-GPS does not currently support forbidden statements. If there are combinations 
-of parameter values that do not yield valid confiugraitons, then you can
-instead detect these configurations in your wrapper and return a `CRASHED` run
-status without bothering to call your target algorithm. However, if your
-forbidden statements are complex, then you may wish to choose a different 
-algorithm configurator (e.g., SMAC), since GPS assumes that your target 
-algorithm parameters do not interact strongly, and hence this could cause
-performance degradation for GPS.
 
-**Required**
+| **scenario-file** |  GPS does not currently support forbidden statements. If there are combinations of parameter values that do not yield valid confiugraitons, then you can instead detect these configurations in your wrapper and return a `CRASHED` run status without bothering to call your target algorithm. However, if your forbidden statements are complex, then you may wish to choose a different algorithm configurator (e.g., SMAC), since GPS assumes that your target algorithm parameters do not interact strongly, and hence this could cause performance degradation for GPS.|
+| Required | Yes |
+| Default | None |
+| Aliases | `--scenario-file`, `--scenario_file`, `--scenarioFile` |
+| **scenario-file** |  GPS does not currently support forbidden statements. If there are combinations of parameter values that do not yield valid confiugraitons, then you can instead detect these configurations in your wrapper and return a `CRASHED` run status without bothering to call your target algorithm. However, if your forbidden statements are complex, then you may wish to choose a different algorithm configurator (e.g., SMAC), since GPS assumes that your target algorithm parameters do not interact strongly, and hence this could cause performance degradation for GPS.|
+| Required | Yes |
+| Default | None |
+| Aliases | `--scenario-file`, `--scenario_file`, `--scenarioFile` |
 
-**Default**: None
 
-**Aliases**: `--scenario-file`, `--scenario_file`, `--scenarioFile`, 
+
 
 
 # Contact
