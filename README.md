@@ -26,7 +26,6 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
 
 # Table of Contents
 
-
    * [Golden Parameter Search (GPS)](#golden-parameter-search-gps)
    * [A Note on Current GPS Status](#a-note-on-current-gps-status)
    * [Table of Contents](#table-of-contents)
@@ -49,39 +48,10 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
          * [Old Parameter Configuration Space Syntax](#old-parameter-configuration-space-syntax)
    * [GPS Arguments](#gps-arguments)
       * [Setup Arguments](#setup-arguments)
-         * [temp_dir](#temp_dir)
-         * [experiment_dir](#experiment_dir)
-         * [scenario_file](#scenario_file)
-         * [output_dir](#output_dir)
-         * [verbose](#verbose)
-      * [Scenario Arguments](#scenario-arguments)
-         * [algo](#algo)
-         * [instance_file](#instance_file)
-         * [wallclock_limit](#wallclock_limit)
-         * [cputime_limit](#cputime_limit)
-         * [seed](#seed)
-         * [runcount_limit](#runcount_limit)
-         * [algo_cutoff_time](#algo_cutoff_time)
-         * [pcs_file](#pcs_file)
-      * [GPS Parameters](#gps-parameters)
-         * [bound_multiplier](#bound_multiplier)
-         * [instance_increment](#instance_increment)
-         * [sleep_time](#sleep_time)
-         * [minimum_workers](#minimum_workers)
-         * [decay_rate](#decay_rate)
-         * [minimum_runs](#minimum_runs)
-         * [alpha](#alpha)
-         * [post_process_incumbent](#post_process_incumbent)
-         * [share_instance_order](#share_instance_order)
       * [Redis Arguments](#redis-arguments)
-         * [redis_dbid](#redis_dbid)
-         * [redis_host](#redis_host)
-         * [redis_port](#redis_port)
+      * [Scenario Arguments](#scenario-arguments)
+      * [GPS Parameters](#gps-parameters)
       * [Post-Process Parameters](#post-process-parameters)
-         * [post_process_multiple_test_correction](#post_process_multiple_test_correction)
-         * [post_process_alpha](#post_process_alpha)
-         * [post_process_min_runs](#post_process_min_runs)
-         * [post_process_n_permutations](#post_process_n_permutations)
    * [Contact](#contact)
 
 # Installing GPS
@@ -537,7 +507,43 @@ To specify the same in the scenario file you would place:
 
 in the scenario file.
 
+**GPS Argument Table of Contents:**
 
+   * [Setup Arguments](#setup-arguments)
+      * [experiment_dir](#experiment_dir)
+      * [output_dir](#output_dir)
+      * [scenario_file](#scenario_file)
+      * [temp_dir](#temp_dir)
+      * [verbose](#verbose)
+   * [Redis Arguments](#redis-arguments)
+      * [redis_dbid](#redis_dbid)
+      * [redis_host](#redis_host)
+      * [redis_port](#redis_port)
+   * [Scenario Arguments](#scenario-arguments)
+      * [algo](#algo)
+      * [algo_cutoff_time](#algo_cutoff_time)
+      * [cputime_limit](#cputime_limit)
+      * [instance_file](#instance_file)
+      * [pcs_file](#pcs_file)
+      * [runcount_limit](#runcount_limit)
+      * [seed](#seed)
+      * [wallclock_limit](#wallclock_limit)
+   * [GPS Parameters](#gps-parameters)
+      * [alpha](#alpha)
+      * [bound_multiplier](#bound_multiplier)
+      * [decay_rate](#decay_rate)
+      * [instance_increment](#instance_increment)
+      * [minimum_runs](#minimum_runs)
+      * [minimum_workers](#minimum_workers)
+      * [post_process_incumbent](#post_process_incumbent)
+      * [share_instance_order](#share_instance_order)
+      * [sleep_time](#sleep_time)
+   * [Post-Process Parameters](#post-process-parameters)
+      * [post_process_alpha](#post_process_alpha)
+      * [post_process_min_runs](#post_process_min_runs)
+      * [post_process_multiple_test_correction](#post_process_multiple_test_correction)
+      * [post_process_n_permutations](#post_process_n_permutations)
+ 
 ## Setup Arguments
 
 These are general GPS arguments that are used to set up the GPS run.
