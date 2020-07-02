@@ -446,7 +446,7 @@ artificial algorithm example, designed to also illustrate conditional parameters
     # algorithm could use. We're indicating that c is a good default heuristic.
     heuristic categorical {a, b, c} [c]
 
-    # sample_probability is a real-valued parameter. We're suggesting that to
+    # sample_probability is a real-valued parameter. We're suggesting to
     # GPS that it should search values in the range [0, 1]. Note that GPS might
     # actually try values outside of this range if it sees evidence that they
     # might perform better. However, since this is a probability it probably
@@ -483,8 +483,63 @@ performance degradation for GPS.
 GPS also supports the old parameter configuration space syntax. For example:
 
     parameter_name [lower_bound, upper_bound] [default] i # for an integer-valued parameter
-    parameter_name [lower_bound, upper_bound] [default # for a real-valued parameter
+    parameter_name [lower_bound, upper_bound] [default] # for a real-valued parameter
     parameter_name {value_1, value_2, ..., value_n} [default] # for a categorical parameter
+
+## GPS Arguments
+
+All of the following arguments can be specified on the command line on in a 
+scenario file (except the scenario file itself, which must be defined on the 
+command line). To specify an argument in a scenario file, simply remove all
+leading dashes. For example, to specify the instance file on the command line
+you would use:
+
+    python2 run_gps_master.py --instance-file /path/to/instances.txt
+
+To specify the same in the scenario file you would place: 
+
+    instance-file = /path/to/instances.txt
+
+in the scenario file.
+
+### Setup Arguments
+
+These are general GPS arguments that are used to set up the GPS run.
+
+#### scenario-file
+
+GPS does not currently support forbidden statements. If there are combinations 
+of parameter values that do not yield valid confiugraitons, then you can
+instead detect these configurations in your wrapper and return a `CRASHED` run
+status without bothering to call your target algorithm. However, if your
+forbidden statements are complex, then you may wish to choose a different 
+algorithm configurator (e.g., SMAC), since GPS assumes that your target 
+algorithm parameters do not interact strongly, and hence this could cause
+performance degradation for GPS.
+
+**Required**
+
+**Default**: None
+
+**Aliases**: `--scenario-file`, `--scenario_file`, `--scenarioFile`
+
+#### scenario-file
+
+GPS does not currently support forbidden statements. If there are combinations 
+of parameter values that do not yield valid confiugraitons, then you can
+instead detect these configurations in your wrapper and return a `CRASHED` run
+status without bothering to call your target algorithm. However, if your
+forbidden statements are complex, then you may wish to choose a different 
+algorithm configurator (e.g., SMAC), since GPS assumes that your target 
+algorithm parameters do not interact strongly, and hence this could cause
+performance degradation for GPS.
+
+**Required**
+
+**Default**: None
+
+**Aliases**: `--scenario-file`, `--scenario_file`, `--scenarioFile`, 
+
 
 # Contact
 
