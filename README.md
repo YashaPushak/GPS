@@ -64,6 +64,16 @@ packages
 
 # Quick Start Guide
 
+GPS is implemented in python2.7, but is designed to be used from the command
+line. To use GPS you will need to launch a master process and one or more
+worker processes. The master process will loop through each parameter, check
+for newly completely target algorithm runs and queue new target algorithm
+runs to be performed. The worker processes will repeatedly check for new
+target algorithms, perform them and then save the reuslts. Communication 
+between the master and worker processes is done through a redis database.
+
+## Required Input
+
 To use GPS, you must provide it with several minimum requirements. We will
 use the artificial algorithm example scenario provided with GPS as a running
 example. This artificial algorithm hallucinates running times for simulated
@@ -257,14 +267,6 @@ The temporary directory can be specified using the `temp-dir` argument. For
 example: `--temp-dir /tmp`.
 
 # Extended Usage Instructions
-
-GPS is implemented in python2.7, but is designed to be used from the command
-line. To use GPS you will need to launch a master process and one or more
-worker processes. The master process will loop through each parameter, check
-for newly completely target algorithm runs and queue new target algorithm
-runs to be performed. The worker processes will repeatedly check for new
-target algorithms, perform them and then save the reuslts. Communication 
-between the master and worker processes is done through a redis database.
 
 ## Target Algorithm Wrapper
 
