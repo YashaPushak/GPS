@@ -78,7 +78,7 @@ takes between 60-90 seconds on our machines).
 
 GPS requires several pieces of information about your scenario to run:
  
-*Target Algorithm:* A target algorithm to optimize callable via the command 
+**Target Algorithm:** A target algorithm to optimize callable via the command 
 line. This corresponds to the GPS's `algo` argument. For example: 
 `--algo 'python2 examples/artificial-algorithm/algorithm.py'`.
 See [Target Algorithm Wrapper]#(target-algorithm-wrapper) for more 
@@ -86,17 +86,31 @@ details.
 
 *Instance File:* A file that specifies the instances on which your your target
 algorithm should be evaluated. Each line should contain a single instance name.
-This corresponds to the `instance-file` parameter. For example:
+This corresponds to the `instance-file` argument. For example:
 `--instance-file examples/artificial-algorithm/instances.txt`
 See [Instance File Format]#(instance-file-format) for more details.
 
-*Parameter Configuration Space File:* A parameter configuration space (.pcs) file, which defines the parameters
-of your target algorithm that GPS should optimize, including their names,
-(suggested) domains and default values. This corresponds to the `pcs-file`
-argument. For example:
+*Parameter Configuration Space File:* A parameter configuration space (.pcs) 
+file, which defines the parameters of your target algorithm that GPS should 
+optimize, including their names, (suggested) domains and default values. This 
+corresponds to the `pcs-file` argument. For example:
 `--pcs-file examples/artificial-algorithm/params.pcs`
 See [Parameter Configuration Space File Format]#(parameter-configuration-space-file-format)
 for more details.
+
+*Target Algorithm Running Time Cutoff:* The maximum amount of time GPS should
+wait for a single target algorithm call to complete. Ideally, the default
+configuration of your target algorithm should be able to solve at least 90%
+of the problem instances within this running time cutoff. The performance of
+all algorithm configurators is very sensitive to this parameter. If you are
+unsure what value to use, you can use a very large one. GPS will adaptively
+limit the running times of the target algorithm calls; however, it may 
+initially waste considerable time if some of the first few target algorithm
+calls it performs take extremely long to run, since it won't yet know what
+a good value to use is. This corresponds to the `algo-cutoff-time` argument
+and should be specified in seconds.
+For example:
+`--algo-cutoff-time 600`
 
 *Configuration Budget:* You must specify a configuration budget using at 
 least one of GPS's three configuration budget limits. These are:
@@ -133,7 +147,7 @@ For example:
 Combining all of the above examples, you're now ready to perform your first
 run of GPS. From the base GPS directory, run:
 
-    python2 run_gps_master.py --algo 'python2 examples/artificial-algorithm/algorithm.py' --instance_file examples/artificial-algorithm/instances.txt --pcs-file examples/artificial-algorithm/params.pcs --runcount-limit 400 --cputime-limit 14400 --redis-dbid 0
+    python2 run_gps_master.py --algo 'python2 examples/artificial-algorithm/algorithm.py' --instance_file examples/artificial-algorithm/instances.txt --pcs-file examples/artificial-algorithm/params.pcs --algo-cutoff-time 600 --runcount-limit 400 --cputime-limit 14400 --redis-dbid 0
 
 This will setup the scenario files and output directory for the GPS run. It will
 then stop and wait until there is at least 1 GPS worker ready to start. It should
@@ -153,12 +167,17 @@ necessary for the GPS run, including a new copy of the scenario file with all
 GPS arguments fully instantiated. The worker will connect to the specified 
 database to determine the location of these files, and then it will begin to
 query the database for target algorithm runs to perform. At this time, the
-original process will begin running the GPS master process. (Note, you can
-also start the worker process before the master process if you choose.)
+original process will begin running the GPS master process. 
 
-The entire process should take less than 5 minutes to run (often 1-3 on our 
-machines). See examples/artificial-algorithm/readme.txt for more details on
-the scenario and the expected output from GPS. While running, GPS will print
+Normally, you would typically want to provide GPS with additional workers to
+distribute the work of performing target algorithm runs. There is no limit
+to the number of workers that GPS can use. You can continue to start as
+many worker processes as you like. However, since this scenario uses an 
+artificial algorithm that requires virtually no time to perform the target
+algorithm runs, there is no benefit to doing so.
+
+The entire process should take about 60-90 seconds to run, although it 
+occassionaly requires up to 5 minutes. While running, GPS will print
 information to the console on the current status of its run, including any
 time it updates the value of a parameter in the incumbent configuration. 
 When it is done, you should see output similar to the following printed to 
@@ -170,7 +189,8 @@ the console from the master process:
     [INFO]:2020-07-02 11:40:34,071: Used: 400 target algorithm runs.
     [INFO]:2020-07-02 11:40:34,071: Final Incumbent:  -heuristic 'a' -x0 '5' -x1 '0.999546896146'
 
-However, since GPS is a randomized algorithm the exact output will vary.
+However, since GPS is a randomized algorithm the exact output will vary. 
+See `examples/artificial-algorithm/readme.txt` for more information.
 
 ### Using a Scenario file
 
@@ -182,7 +202,7 @@ argument specifications:
 
     pcs-file = params.pcs
     algo = python algorithm.py
-    cutoff = 600
+    algo_cutoff_time = 600
     instances = instances.txt
     # Whichever budget limit is reached first will terminate GPS
     runcount_limit = 400
@@ -193,8 +213,53 @@ argument specifications:
     cputime_limit = 14400
     verbose = 1
 
+Any line that begins with `#` is treated as a comment and ignored. You can then start the
+GPS master process using:
+
+    python2 run_gps_master.py --scenario-file examples/artificial-algorithm/scenario.txt --redis-dbid 0
+
+The call for the worker process remains the same.
+
+Any argument than can be specified on the command line can also be specified in a scenario
+file. If the same argument is defined multiple times, the order of precedence will be:
+command line > scenario file > redis configuration file > GPS default values.
+
+### Experiment Directory
+
+Rather than running everything from the GPS root directory, it is often more
+convenient to specify the location from which the experiment should be run 
+using the `experiment-dir` argument. When this is done, all other relative file 
+and directory paths should be specified relative to this directory. Note that
+GPS will then change to this directory prior to beginning to run, which means
+that any relative paths used internally by your target algorithm or wrapper 
+must be available from your experiment directory.
+
+This is also a convenient way to help organize the several output files used
+by GPS, as they will be stored in this experiment directory rather than the
+directory from which you called GPS. To continue our running example, you
+would start the master process with the following command line call:
 
     python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
+
+### Temporary File Directory - *Important*
+
+GPS (like other algorithm configurators) creates a large number of temporary 
+files that it uses to interact with your target algorithm wrapper. This can
+sometimes cause temporary performance degredation for your entire filesystem
+(which in turn, can of course impact the quality of the configurations found
+by GPS). GPS will clean up these files when it is done with them. However, 
+for file systems that automatically back-up files, GPS and other algorithm
+configurators can still cause performance degradation. For this reason, it 
+is *strongly* recommended to provide GPS with the location of a temporary
+directory where it can create these files without effecting the performance
+of the main filesystem. This directory should not be backed up, and should
+ideally be fast to write to. GPS does not share temporary files between
+processes. So if worker processes are operating on separate nodes of a 
+cluster, it is unproblematic for each worker to have access to separate
+temporary file directories. 
+
+The temporary directory can be specified using the `temp-dir` argument. For
+example: `--temp-dir /tmp`.
 
 ## Target Algorithm Wrapper
 
