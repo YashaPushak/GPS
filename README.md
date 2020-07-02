@@ -542,7 +542,7 @@ Yes
 </td> </tr> <tr> <td>
 <b> Aliases </b>
 </td> <td> 
-<pre>--scenario-file</pre>, <pre>--scenario_file<pre>, <pre>--scenarioFile</pre>
+<code>--scenario-file</code>, <code>--scenario_file<code>, <code>--scenarioFile</code>
 </td> </tr> </table>
 
 
