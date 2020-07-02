@@ -26,11 +26,17 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
 
 # Table of Contents
 
-   * [Golden Parameter Search GPS](#golden-parameter-search-gps)
+
+   * [Golden Parameter Search (GPS)](#golden-parameter-search-gps)
    * [A Note on Current GPS Status](#a-note-on-current-gps-status)
    * [Table of Contents](#table-of-contents)
    * [Installing GPS](#installing-gps)
-   * [Using GPS](#using-gps)
+   * [Quick Start Guide](#quick-start-guide)
+      * [Example command line call for GPS](#example-command-line-call-for-gps)
+      * [Using a Scenario file](#using-a-scenario-file)
+      * [Experiment Directory](#experiment-directory)
+      * [Temporary File Directory - <em>Important</em>](#temporary-file-directory---important)
+   * [Extended Usage Instructions](#extended-usage-instructions)
       * [Target Algorithm Wrapper](#target-algorithm-wrapper)
          * [Target Algorithm Wrapper Input](#target-algorithm-wrapper-input)
          * [Target Algorithm Wrapper Output](#target-algorithm-wrapper-output)
@@ -56,17 +62,7 @@ packages
 `pip install -r requirements.txt`.
  - Setup a redis database.
 
-# Using GPS
-
-GPS is implemented in python2.7, but is designed to be used from the command
-line. To use GPS you will need to launch a master process and one or more
-worker processes. The master process will loop through each parameter, check
-for newly completely target algorithm runs and queue new target algorithm
-runs to be performed. The worker processes will repeatedly check for new
-target algorithms, perform them and then save the reuslts. Communication 
-between the master and worker processes is done through a redis database.
-
-## Quick Start Guide
+# Quick Start Guide
 
 To use GPS, you must provide it with several minimum requirements. We will
 use the artificial algorithm example scenario provided with GPS as a running
@@ -81,24 +77,23 @@ GPS requires several pieces of information about your scenario to run:
 **Target Algorithm:** A target algorithm to optimize callable via the command 
 line. This corresponds to the GPS's `algo` argument. For example: 
 `--algo 'python2 examples/artificial-algorithm/algorithm.py'`.
-See [Target Algorithm Wrapper]#(target-algorithm-wrapper) for more 
-details.
+See [Target Algorithm Wrapper](#target-algorithm-wrapper) for more details.
 
-*Instance File:* A file that specifies the instances on which your your target
+**Instance File:** A file that specifies the instances on which your your target
 algorithm should be evaluated. Each line should contain a single instance name.
 This corresponds to the `instance-file` argument. For example:
 `--instance-file examples/artificial-algorithm/instances.txt`
-See [Instance File Format]#(instance-file-format) for more details.
+See [Instance File Format](#instance-file-format) for more details.
 
-*Parameter Configuration Space File:* A parameter configuration space (.pcs) 
+**Parameter Configuration Space File:** A parameter configuration space (.pcs) 
 file, which defines the parameters of your target algorithm that GPS should 
 optimize, including their names, (suggested) domains and default values. This 
 corresponds to the `pcs-file` argument. For example:
 `--pcs-file examples/artificial-algorithm/params.pcs`
-See [Parameter Configuration Space File Format]#(parameter-configuration-space-file-format)
+See [Parameter Configuration Space File Format](#parameter-configuration-space-file-format)
 for more details.
 
-*Target Algorithm Running Time Cutoff:* The maximum amount of time GPS should
+**Target Algorithm Running Time Cutoff:** The maximum amount of time GPS should
 wait for a single target algorithm call to complete. Ideally, the default
 configuration of your target algorithm should be able to solve at least 90%
 of the problem instances within this running time cutoff. The performance of
@@ -112,7 +107,7 @@ and should be specified in seconds.
 For example:
 `--algo-cutoff-time 600`
 
-*Configuration Budget:* You must specify a configuration budget using at 
+**Configuration Budget:** You must specify a configuration budget using at 
 least one of GPS's three configuration budget limits. These are:
  - `wallclock-limit` - Which specifies the total wall clock time allowed
 for the GPS run.
@@ -125,7 +120,7 @@ You may use multiple configuration budget limits together. For example:
 `--runcount-limit 400 --cputime-limit 14400`. Whichever one is exhausted
 first will terminate the GPS run. 
 
-*Redis Database Configuration:* You must also tell GPS how to connect to
+**Redis Database Configuration:** You must also tell GPS how to connect to
 your redis database server. Normally, you will want to specify both the 
 redis host and port using the `redis_configuration.txt` file in the main
 GPS directory, as these will typically not change between GPS runs. For
@@ -142,7 +137,7 @@ this reason, we recommend to always specify this value on the command line.
 For example:
 `--redis-dbid 0`.
 
-### Example command line call for GPS
+## Example command line call for GPS
 
 Combining all of the above examples, you're now ready to perform your first
 run of GPS. From the base GPS directory, run:
@@ -192,7 +187,7 @@ the console from the master process:
 However, since GPS is a randomized algorithm the exact output will vary. 
 See `examples/artificial-algorithm/readme.txt` for more information.
 
-### Using a Scenario file
+## Using a Scenario file
 
 Rather than using a long command line call to start GPS, it is often helpful
 to specify most of GPS's arguments in a scenario file, and then to simply
@@ -224,7 +219,7 @@ Any argument than can be specified on the command line can also be specified in 
 file. If the same argument is defined multiple times, the order of precedence will be:
 command line > scenario file > redis configuration file > GPS default values.
 
-### Experiment Directory
+## Experiment Directory
 
 Rather than running everything from the GPS root directory, it is often more
 convenient to specify the location from which the experiment should be run 
@@ -241,7 +236,7 @@ would start the master process with the following command line call:
 
     python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
 
-### Temporary File Directory - *Important*
+## Temporary File Directory - *Important*
 
 GPS (like other algorithm configurators) creates a large number of temporary 
 files that it uses to interact with your target algorithm wrapper. This can
@@ -260,6 +255,16 @@ temporary file directories.
 
 The temporary directory can be specified using the `temp-dir` argument. For
 example: `--temp-dir /tmp`.
+
+# Extended Usage Instructions
+
+GPS is implemented in python2.7, but is designed to be used from the command
+line. To use GPS you will need to launch a master process and one or more
+worker processes. The master process will loop through each parameter, check
+for newly completely target algorithm runs and queue new target algorithm
+runs to be performed. The worker processes will repeatedly check for new
+target algorithms, perform them and then save the reuslts. Communication 
+between the master and worker processes is done through a redis database.
 
 ## Target Algorithm Wrapper
 
