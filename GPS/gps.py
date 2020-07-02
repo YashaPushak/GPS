@@ -8,7 +8,7 @@
 
 
 import helper
-import pcsParser
+from PCS import pcsParser
 import pcsHelper
 import dictDiffer
 

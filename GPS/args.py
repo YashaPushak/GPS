@@ -201,7 +201,7 @@ class ArgumentParser:
                         'post-processing the output from one or more GPS runs to help protect against these '
                         'kinds of mistakes made by GPS. However, preliminary results testing this method '
                         'currently indicates that it typically decreases the performance of the incumbents '
-                        'returned by GPS. Should be \'True\' or \'False\'. The default is \'False\'.'
+                        'returned by GPS. Should be \'True\' or \'False\'. The default is \'False\'.',
                 'type': _validate(_to_bool, "The post-process-incumbent parameter must be 'True' or 'False'")}, 
         }
 
