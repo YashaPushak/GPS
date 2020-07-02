@@ -1,4 +1,4 @@
-# Golden Parameter Search GPS
+# Golden Parameter Search (GPS)
 
 Golden Parameter Search (GPS) is an automated algorithm congifuration 
 procedure. That is, it seeks to optimize the performance (in terms of
@@ -15,7 +15,8 @@ interact, thereby allowing GPS to optimize each parameter semi-independetly
 in parallel. These two assumptions allow GPS to quickly and efficiently explore
 the parameter configuration space. However, if you have reason to believe that
 your particular target algorithm contains parameters that strongly violates
-either of these two assumptions, then GPS may not be the appropriate 
+either of these two assumptions, then GPS may not be the appropriate algorithm
+configuration procedure for you. 
 
 # A Note on Current GPS Status
 
@@ -65,24 +66,84 @@ runs to be performed. The worker processes will repeatedly check for new
 target algorithms, perform them and then save the reuslts. Communication 
 between the master and worker processes is done through a redis database.
 
-We have provided an example scenario with an artificial algorithm that 
-hallucinates running times. It first determines the difficulty of a given
-instance by randomly sampling from a normal distribution, which it uses
-as the mean of an exponential distribution, from which is samples a running
-time for a particular run of the target algorithm on that instance. This 
-running time base is then multiplied together with the output from a simple
-function of three independent parameters. This was designed to be an easy
-benchmark for GPS that can be run in less than 5 minutes with 2 processors.
+## Quick Start Guide
 
-To run the scenario, first ensure that you have completed all the installation
-instructions (including updating the redis_configuration.txt file to point GPS
-to the redis database). Then, from the base GPS directory you should run
+To use GPS, you must provide it with several minimum requirements. We will
+use the artificial algorithm example scenario provided with GPS as a running
+example. This artificial algorithm hallucinates running times for simulated
+parameter responses, all of which is designed to approximate the behaviour
+of real target algorithms. The scenario was designed to be an easy benchmark 
+for GPS that can be run in less than 5 minutes with 2 processors (it typically
+takes between 60-90 seconds on our machines).
 
-    python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
+GPS requires several pieces of information about your scenario to run:
+ 
+*Target Algorithm:* A target algorithm to optimize callable via the command 
+line. This corresponds to the GPS's `algo` argument. For example: 
+`--algo 'python2 examples/artificial-algorithm/algorithm.py'`.
+See [Target Algorithm Wrapper]#(target-algorithm-wrapper) for more 
+details.
+
+*Instance File:* A file that specifies the instances on which your your target
+algorithm should be evaluated. Each line should contain a single instance name.
+This corresponds to the `instance-file` parameter. For example:
+`--instance-file examples/artificial-algorithm/instances.txt`
+See [Instance File Format]#(instance-file-format) for more details.
+
+*Parameter Configuration Space File:* A parameter configuration space (.pcs) file, which defines the parameters
+of your target algorithm that GPS should optimize, including their names,
+(suggested) domains and default values. This corresponds to the `pcs-file`
+argument. For example:
+`--pcs-file examples/artificial-algorithm/params.pcs`
+See [Parameter Configuration Space File Format]#(parameter-configuration-space-file-format)
+for more details.
+
+*Configuration Budget:* You must specify a configuration budget using at 
+least one of GPS's three configuration budget limits. These are:
+ - `wallclock-limit` - Which specifies the total wall clock time allowed
+for the GPS run.
+ - `cputime-limit` - Which specifies the total amount of CPU time allowed
+to be spent evaluating configurations (exlcuding overhead from GPS) for
+the GPS run.
+ - `runcount-limit` - Which specifies the total number of target algorithm
+runs allowed for the GPS run.
+You may use multiple configuration budget limits together. For example:
+`--runcount-limit 400 --cputime-limit 14400`. Whichever one is exhausted
+first will terminate the GPS run. 
+
+*Redis Database Configuration:* You must also tell GPS how to connect to
+your redis database server. Normally, you will want to specify both the 
+redis host and port using the `redis_configuration.txt` file in the main
+GPS directory, as these will typically not change between GPS runs. For
+example, the file contents could be:
+    redis-host = localhost
+    redis-port = 9503
+If you choose, you can also specify this information on the command line:
+`--redis-host localhost --redis-port 9503`.
+
+You will also need to speciy the redis database instance ID to be used
+for the GPS run. You can perform multiple independent runs of GPS in
+parallel, in which case each run must use a separate database ID. For
+this reason, we recommend to always specify this value on the command line.
+For example:
+`--redis-dbid 0`.
+
+### Example command line call for GPS
+
+Combining all of the above examples, you're now ready to perform your first
+run of GPS. From the base GPS directory, run:
+
+    python2 run_gps_master.py --algo 'python2 examples/artificial-algorithm/algorithm.py' --instance_file examples/artificial-algorithm/instances.txt --pcs-file examples/artificial-algorithm/params.pcs --runcount-limit 400 --cputime-limit 14400 --redis-dbid 0
 
 This will setup the scenario files and output directory for the GPS run. It will
-then stop and wait until there is at least 1 GPS worker ready to start. Next,
-in a second terminal, run 
+then stop and wait until there is at least 1 GPS worker ready to start. It should
+print similar output to the following to the console:
+
+    [INFO]:2020-07-02 11:39:05,801: Starting new GPS run with GPS ID 4RP76T
+    [INFO]:2020-07-02 11:39:05,804: Waiting until all workers are ready...
+    [INFO]:2020-07-02 11:39:06,806: There are 0 out of a minimum of 1 workers ready...
+
+Next, in a second terminal, run 
 
     python2 run_gps_worker.py --redis-dbid 0
 
@@ -92,11 +153,30 @@ necessary for the GPS run, including a new copy of the scenario file with all
 GPS arguments fully instantiated. The worker will connect to the specified 
 database to determine the location of these files, and then it will begin to
 query the database for target algorithm runs to perform. At this time, the
-original process will begin running the GPS master process. 
+original process will begin running the GPS master process. (Note, you can
+also start the worker process before the master process if you choose.)
 
 The entire process should take less than 5 minutes to run (often 1-3 on our 
 machines). See examples/artificial-algorithm/readme.txt for more details on
-the scenario and the expected output from GPS.
+the scenario and the expected output from GPS. While running, GPS will print
+information to the console on the current status of its run, including any
+time it updates the value of a parameter in the incumbent configuration. 
+When it is done, you should see output similar to the following printed to 
+the console from the master process:
+
+    [INFO]:2020-07-02 11:40:34,070: Reason for stopping: run budget exhausted
+    [INFO]:2020-07-02 11:40:34,070: Used: 10289.0807883 CPU Seconds on target algorithm runs
+    [INFO]:2020-07-02 11:40:34,071: Used: 67.2261619568 Wall Clock Seconds (total)
+    [INFO]:2020-07-02 11:40:34,071: Used: 400 target algorithm runs.
+    [INFO]:2020-07-02 11:40:34,071: Final Incumbent:  -heuristic 'a' -x0 '5' -x1 '0.999546896146'
+
+However, since GPS is a randomized algorithm the exact output will vary.
+
+The worker process
+
+### Using a Scenario file
+
+    python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
 
 ## Target Algorithm Wrapper
 
