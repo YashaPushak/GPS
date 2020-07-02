@@ -1,5 +1,5 @@
 pcs-file = params.pcs
-algo = python algorithm.py
+algo = python2 algorithm.py
 cutoff = 600
 instances = instances.txt
 # Whichever budget limit is reached first will terminate GPS

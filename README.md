@@ -172,9 +172,27 @@ the console from the master process:
 
 However, since GPS is a randomized algorithm the exact output will vary.
 
-The worker process
-
 ### Using a Scenario file
+
+Rather than using a long command line call to start GPS, it is often helpful
+to specify most of GPS's arguments in a scenario file, and then to simply
+point GPS to the scenario file. For example, we include the file
+`examples/artificial-algorithm/scenario.txt`, which contains the following
+argument specifications:
+
+    pcs-file = params.pcs
+    algo = python algorithm.py
+    cutoff = 600
+    instances = instances.txt
+    # Whichever budget limit is reached first will terminate GPS
+    runcount_limit = 400
+    # Note that GPS only counts the times reported by your target algorithm in this limit
+    # So even though we are giving it a 4 hour (14400 seconds), it should actually terminate
+    # in around 1-3 minutess, since our artificial algorithm actually spends far less time
+    # than it returns
+    cputime_limit = 14400
+    verbose = 1
+
 
     python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
 

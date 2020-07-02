@@ -1,0 +1,33 @@
+# Setup Arguments
+# ---------------
+experiment-dir = .
+output-dir = gps-output
+temp-dir = .
+verbose = 1
+
+# Scenario Arguments
+# ------------------
+algo-cutoff-time = 600
+runcount-limit = 2147483647
+wallclock-limit = 2147483647
+cputime-limit = 2147483647
+seed = -1
+
+# GPS Parameters
+# --------------
+min-runs = 5
+alpha = 0.05
+decay-rate = 0.2
+bound-multiplier = adaptive
+instance-increment = 1
+sleep-time = 0
+minimum-workers = 1
+share-instance-order = False
+post-process-incumbent = False
+
+# Post-Process Parameters
+# -----------------------
+post-process-min-runs = 5
+post-process-alpha = 0.05
+post-process-n-permutations = 10000
+post-process-multiple-test-correction = True
