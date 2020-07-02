@@ -126,6 +126,7 @@ to be spent evaluating configurations (exlcuding overhead from GPS) for
 the GPS run.
  - `runcount-limit` - Which specifies the total number of target algorithm
 runs allowed for the GPS run.
+
 You may use multiple configuration budget limits together. For example:
 `--runcount-limit 400 --cputime-limit 14400`. Whichever one is exhausted
 first will terminate the GPS run. 
@@ -246,7 +247,7 @@ would start the master process with the following command line call:
 
     python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
 
-## Temporary File Directory - *Important*
+## Temporary File Directory - **Important**
 
 GPS (like other algorithm configurators) creates a large number of temporary 
 files that it uses to interact with your target algorithm wrapper. This can
@@ -254,17 +255,22 @@ sometimes cause temporary performance degredation for your entire filesystem
 (which in turn, can of course impact the quality of the configurations found
 by GPS). GPS will clean up these files when it is done with them. However, 
 for file systems that automatically back-up files, GPS and other algorithm
-configurators can still cause performance degradation. For this reason, it 
-is *strongly* recommended to provide GPS with the location of a temporary
+configurators can still cause performance degradation. 
+
+For this reason, it 
+is **strongly** recommended to provide GPS with the location of a temporary
 directory where it can create these files without effecting the performance
 of the main filesystem. This directory should not be backed up, and should
-ideally be fast to write to. GPS does not share temporary files between
+ideally be fast to write to.
+
+The temporary directory can be specified using the `temp-dir` argument. For
+example: `--temp-dir /tmp`.
+
+GPS does not share temporary files between
 processes. So if worker processes are operating on separate nodes of a 
 cluster, it is unproblematic for each worker to have access to separate
 temporary file directories. 
 
-The temporary directory can be specified using the `temp-dir` argument. For
-example: `--temp-dir /tmp`.
 
 # Extended Usage Instructions
 
