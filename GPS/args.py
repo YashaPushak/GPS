@@ -564,19 +564,19 @@ def _print_argument_documentation():
     to be included in the github readme file, including markdown.
     """
     def _table_row(header, content):
-        return '<tr> {} {} </tr>'.format(_table_column(_bold(header)),
-                                         _table_column(content))
+        return '<tr>{}{}</tr>'.format(_table_column(_bold(header)),
+                                      _table_column(content))
     def _table_column(content):
-        return '<td> {} </td>'.format(content)
+        return '<td>{}</td>'.format(content)
     def _bold(header):
-        return '<b> {} </b>'.format(header)
+        return '<b>{}</b>'.format(header)
     def _list_of_code(aliases):
-        return ', '.join(['<code> {} </code>'.format(alias) for alias in aliases])
+        return ', '.join(['<code>{}</code>'.format(alias.strip()) for alias in aliases])
     def _table(description, required, default, aliases):
-        return  ('<table>\n{}\n{}\n{}\n{}\n</table>\n'
+        return  ('<table>\n{}\n{}\n{}\n</table>\n'
                  ''.format(_table_row('Description', description),
-                           _table_row('Required', 'Yes' if required else 'No'),
-                           _table_row('Default', default),
+                           _table_row('Required' if required else 'Default',
+                                      'Yes' if required else default),
                            _table_row('Aliases', _list_of_code(aliases))))
 
     argument_parser = ArgumentParser()
