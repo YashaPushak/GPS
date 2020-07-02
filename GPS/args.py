@@ -239,7 +239,8 @@ class ArgumentParser:
                 'type': _validate(_to_bool, "The post-process multiple test correction parameter must be "
                                             "'True' or 'False'")},
         }
-        
+        self.groups_in_order = ['Setup Arguments', 'Redis Arguments', 'Scenario Arguments', 'GPS Parameters',
+                                'Post-Process Parameters']
         self.argument_groups = {'Setup Arguments': self.setup_arguments,
                                 'Redis Arguments': self.redis_arguments,
                                 'Scenario Arguments': self.scenario_arguments,
@@ -254,9 +255,15 @@ class ArgumentParser:
                                                  'information.',
                            'GPS Parameters': 'These are the parameters of GPS itself. You can use these '
                                              'to modify GPS to best suit your scenario, if desired. '
-                                             'Given a sufficiently large budget and a broad range of ' 
-                                             'scenarios, you could even use GPS to automatically '
-                                             'configure itself.',
+                                             'Unless you know what you are doing, '
+                                             'we recommend not to change these parameters from their '
+                                             'defaults, as they have been chosen through careful '
+                                             'experimentation. However, we did this manually, so if '
+                                             'you have a large enough budget, you could always apply '
+                                             'GPS to configure itself, which would no doubt improve '
+                                             'the performance of GPS ;) . If you do this, please get in ' 
+                                             'touch! We would love to validate your GPS configuration '
+                                             'and include it as the new default settings. ',
                            'Post-Process Parameters': 'GPS comes with a currently-undocumented post-'
                                                       'processing procedure that can be used to post-'
                                                       'process the output from one or more runs of GPS '
@@ -571,25 +578,40 @@ def _print_argument_documentation():
     def _bold(header):
         return '<b>{}</b>'.format(header)
     def _list_of_code(aliases):
-        return ', '.join(['<code>{}</code>'.format(alias.strip()) for alias in aliases])
+        return ', '.join([_code(alias.strip()) for alias in aliases])
+    def _code(code):
+        return '<code>{}</code>'.format(code)
     def _table(description, required, default, aliases):
         return  ('<table>\n{}\n{}\n{}\n</table>\n'
-                 ''.format(_table_row('Description', description),
+                 ''.format(_table_row('Description', _abreviations_to_italics(description)),
                            _table_row('Required' if required else 'Default',
                                       'Yes' if required else default),
                            _table_row('Aliases', _list_of_code(aliases))))
+    def _abreviations_to_italics(content):
+        abreviations = ['e.g.', 'i.e.', 'etc.', 'vs.']
+        for token in abreviations:
+            content = content.replace(token, '<i>{}</i>'.format(token))
+        return token
 
     argument_parser = ArgumentParser()
     defaults, _ = argument_parser.parse_file_arguments(argument_parser.defaults, {})
-    for group in argument_parser.argument_groups:
+    for group in argument_parser.groups_in_order:
         print('## {}\n'.format(group))
         print('{}\n'.format(argument_parser.group_help[group]))
-        for arg in argument_parser.argument_groups[group]:
+        arguments = sorted(list(argument_parser.argument_groups[group].keys()))
+        for arg in arguments:
             name = _get_name(arg)
             print('### {}\n'.format(name))
             description = argument_parser.argument_groups[group][arg]['help']
             required = name not in defaults
             default = None if required else defaults[name]
+            # Handle the one exception to the rule.
+            if name == 'scenario_file':
+                required = False
+                default = None
+            # Convert directories to code
+            if '_dir' in name:
+                default = _code(default)
             aliases = _get_aliases(arg)
             print(_table(description, required, default, aliases))
            
