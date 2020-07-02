@@ -361,6 +361,7 @@ class ArgumentParser:
             A list of all non-comment lines in the scenario file that were
             skipped.
         """
+        skipped_lines = []
         # First parse the command line arguments
         arguments = self.parse_command_line_arguments()
         # If a scenario file was provided, parse the arguments from it
