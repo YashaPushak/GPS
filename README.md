@@ -525,22 +525,22 @@ performance degradation for GPS.
 
 ---
 
-#### scenario-file
+#### **scenario-file**
 
 <table> <tr> <td> 
 Description
 </td> <td>
 GPS does not currently support forbidden statements. If there are combinations of parameter values that do not yield valid confiugraitons, then you can instead detect these configurations in your wrapper and return a `CRASHED` run status without bothering to call your target algorithm. However, if your forbidden statements are complex, then you may wish to choose a different algorithm configurator (e.g., SMAC), since GPS assumes that your target algorithm parameters do not interact strongly, and hence this could cause performance degradation for GPS.
 </td> </tr> <tr> <td>
-**Required**
-<\td> <td>
+<b> Required </b>
+</td> <td>
 Yes
 </td> </tr> <tr> <td>
-**Default**
+<b> Default </b>
 </td> <td> 
 Yes
 </td> </tr> <tr> <td>
-**Aliases**
+<b> Aliases </b>
 </td> <td> 
  `--scenario-file`, `--scenario_file`, `--scenarioFile`
 </td> </tr> </table>
