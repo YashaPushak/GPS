@@ -1,4 +1,4 @@
-# GPS
+# Golden Parameter Search GPS
 
 Golden Parameter Search (GPS) is an automated algorithm congifuration 
 procedure. That is, it seeks to optimize the performance (in terms of
@@ -17,13 +17,30 @@ the parameter configuration space. However, if you have reason to believe that
 your particular target algorithm contains parameters that strongly violates
 either of these two assumptions, then GPS may not be the appropriate 
 
-## A Note on Current GPS Status
+# A Note on Current GPS Status
 
 This repository is actively being updated to include a new command line
 interface for interacting with GPS, along with substantially more documentation
 on how to use it. We anticipate completing this work no later than 2020-07-08.
 
-## Installing GPS
+# Table of Contents
+
+   * [Golden Parameter Search GPS](#golden-parameter-search-gps)
+   * [A Note on Current GPS Status](#a-note-on-current-gps-status)
+   * [Table of Contents](#table-of-contents)
+   * [Installing GPS](#installing-gps)
+   * [Using GPS](#using-gps)
+      * [Target Algorithm Wrapper](#target-algorithm-wrapper)
+         * [Target Algorithm Wrapper Input](#target-algorithm-wrapper-input)
+         * [Target Algorithm Wrapper Output](#target-algorithm-wrapper-output)
+      * [Instance File Format](#instance-file-format)
+      * [Parameter Configuration Space File Format](#parameter-configuration-space-file-format)
+         * [Conditional Parameters](#conditional-parameters)
+         * [Forbidden Statements](#forbidden-statements)
+         * [Old Parameter Configuration Space Syntax](#old-parameter-configuration-space-syntax)
+   * [Contact](#contact)
+
+# Installing GPS
 
  - Create a python2.7 virtual environment
  - Download the latest version of the parameter configuration space parser
@@ -38,7 +55,7 @@ packages
 `pip install -r requirements.txt`.
  - Setup a redis database.
 
-## Using GPS
+# Using GPS
 
 GPS is implemented in python2.7, but is designed to be used from the command
 line. To use GPS you will need to launch a master process and one or more
@@ -81,7 +98,7 @@ The entire process should take less than 5 minutes to run (often 1-3 on our
 machines). See examples/artificial-algorithm/readme.txt for more details on
 the scenario and the expected output from GPS.
 
-### Target Algorithm Wrapper
+## Target Algorithm Wrapper
 
 When performing automated algorithm configuration, it is typical to use a
 target algorithm wrapper that implements a particular interface between
@@ -96,7 +113,7 @@ interface as SMAC and ParamILS, which means that you can directly use any
 scenarios set up for use with the generic wrapper for algorithm 
 configuration available from https://github.com/automl/GenericWrapper4AC.
 
-#### Target Algorithm Wrapper Input
+### Target Algorithm Wrapper Input
 
 The format for the wrapper command line calls must conform to the following:
 
@@ -121,7 +138,7 @@ single quotes. If you specify any conditional, parent-child relationships
 between your parameters, GPS will automatically remove any disabled children
 parameters prior to passing the configuration to your wrapper.
 
-#### Target Algorithm Wrapper Output
+### Target Algorithm Wrapper Output
 
 The wrapper may output any amount of information to the command line. However,
 each call to the wrapper should produce exactly one line of output in the
@@ -153,7 +170,7 @@ target algorithm run that you choose. GPS parses it as a string, but otherwise
 ignores this information. For backwards compatibility with other configurators,
 this field should not contain any commas.
 
-### Instance File Format
+## Instance File Format
 
 GPS requires that a text file that specifies the problem instances on which 
 your target algorithm should be evaluated. Each line specifies the name of an
@@ -164,7 +181,7 @@ contain any spaces.
 
 At this time, GPS does not support instance-specific information.
 
-### Parameter Configuration Space File Format
+## Parameter Configuration Space File Format
 
 GPS requires a file that specifies the parameters of your target algorithm
 that are to be configured, containing the type of each parameter, the domain of
@@ -184,8 +201,8 @@ blank. The general format is:
 The `parameter_name` should not contain any spaces. 
 
 The `parameter_type` should be one of: `real`, `integer` or `categorical`. 
-Ordinal parameters are not current supported by GPS, but can be encoded as
-integer parameters.
+Ordinal parameters are not currently supported by GPS, and should be encoded as
+integer-valued parameters.
 
 If the `parameter_type` is `real` or `integer`, then the `parameter_range` 
 should be specified in the following format: `[lower_bound, upper_bound]`.
@@ -194,12 +211,13 @@ GPS does not treat these bounds as strict upper and lower limits, but instead
 as guidelines indicating promising regions of the configuration space. This
 means that if GPS sees evidence that values outside of this range will improve
 the performance of your target algorithm it will not hesitate to attempt them.
-If values outside of this range do not (for example, the parameter specifies
-a probability), then it is up to you to monitor for these values. You can
-handle this case in any way that you deem appropriate, for example, but raising
-an exception (and returning a `CRASH` result to GPS), or by saturating the 
-parameter value at the minimum or maximum. If desired, you can implement this
-in your target algorithm wrapper instead of your algorithm. 
+If values outside of this range do not produce valid confiugrations
+(for example, the parameter specifies a probability), then it is up to you to 
+monitor for these values. You can handle this case in any way that you deem 
+appropriate, for example, but raising an exception (and returning a `CRASH` 
+result to GPS), or by saturating the parameter value at the minimum or maximum.
+If desired, you can implement this in your target algorithm wrapper instead of 
+your algorithm. 
 
 If the `parameter_type` is `categorical`, then the `parameter_range` should be
 specified in the following format: `{value_1, value_2, ..., value_n}`. Where 
@@ -213,10 +231,10 @@ You may optionally append the word `log` (without square brackets) at the end
 of a line to suggest the parameter should be searched on a log scale.
 Currently this option is ignored by GPS.
 
-You may also optionall append a `#` followed by any text to the end of any
-line, will GPS will treat as a comment and ingore.
+You may also optionally append a `#` followed by any text to the end of any
+line, will GPS will treat this as a comment and ingore it.
 
-#### Conditional Parameters
+### Conditional Parameters
 
 GPS also accepts conditional parameters, which may be specified using the
 following syntax:
@@ -227,7 +245,7 @@ GPS does not support other operators, for example `in` or `>`. If you need to
 support this behaviour, you must create one child parameter for each value of
 the parameter parameter that should enable the child. 
 
-#### Forbidden Statements
+### Forbidden Statements
 
 GPS does not currently support forbidden statements. If there are combinations 
 of parameter values that do not yield valid confiugraitons, then you can
@@ -238,7 +256,7 @@ algorithm configurator (e.g., SMAC), since GPS assumes that your target
 algorithm parameters do not interact strongly, and hence this could cause
 performance degradation for GPS.
 
-#### Old Parameter Configuration Space Syntax
+### Old Parameter Configuration Space Syntax
 
 GPS also supports the old parameter configuration space syntax. For example:
 
@@ -246,7 +264,7 @@ GPS also supports the old parameter configuration space syntax. For example:
     parameter_name [lower_bound, upper_bound] [default # for a real-valued parameter
     parameter_name {value_1, value_2, ..., value_n} [default] # for a categorical parameter
 
-## Contact
+# Contact
 
 Yasha Pushak  
 ypushak@cs.ubc.ca  
