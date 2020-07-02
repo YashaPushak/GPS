@@ -437,6 +437,14 @@ class ArgumentParser:
                         continue
                     f_out.write('{} = {}\n'.format(name, arguments[name]))
             f_out.write('\n')
+
+    def _print_argument_documentation(self):
+        """_print_argument_documentation
+
+        Prints out documentation on each of the parameters formated
+        to be included in the github readme file, including markdown.
+
+        
                     
 def _get_name(names):
     name = names[0] if isinstance(names, tuple) else names
