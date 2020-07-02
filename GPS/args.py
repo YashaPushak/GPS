@@ -245,6 +245,33 @@ class ArgumentParser:
                                 'Scenario Arguments': self.scenario_arguments,
                                 'GPS Parameters': self.gps_parameters,
                                 'Post-Process Parameters': self.postprocess_parameters}
+        self.group_help = {'Setup Arguments': 'These are general GPS arguments that are used to set up '
+                                              'the GPS run.',
+                           'Redis Arguments': 'These arguments are required to configure GPS so that it '
+                                              'connect to your redis server installation, which it uses '
+                                              'to communicate between master and worker processes.',
+                           'Scenario Arguments': 'These arguments define the scenario-specific '
+                                                 'information.',
+                           'GPS Parameters': 'These are the parameters of GPS itself. You can use these '
+                                             'to modify GPS to best suit your scenario, if desired. '
+                                             'Given a sufficiently large budget and a broad range of ' 
+                                             'scenarios, you could even use GPS to automatically '
+                                             'configure itself.',
+                           'Post-Process Parameters': 'GPS comes with a currently-undocumented post-'
+                                                      'processing procedure that can be used to post-'
+                                                      'process the output from one or more runs of GPS '
+                                                      'in order to extract the best configuration that '
+                                                      'has been evaluated on the largest number of '
+                                                      'instances. These are the parameters that control '
+                                                      'the behaviour of this procedure. If you '
+                                                      'perform multiple independent runs of GPS, but can '
+                                                      'not afford the time required to validate all of '
+                                                      'final incumbents, you may find this feature '
+                                                      'helpful. However, preliminary data suggests that '
+                                                      'using this procedure to post-process the output of '
+                                                      'a single GPS run harms the quality of the final '
+                                                      'configurations. Further study of this method is '
+                                                      'still required.'}
         # Location of the GPS source code directory
         gps_directory = os.path.dirname(os.path.realpath(inspect.getfile(inspect.currentframe())))
         # File with hard-coded default values for all (optional) GPS parameters
@@ -438,13 +465,8 @@ class ArgumentParser:
                     f_out.write('{} = {}\n'.format(name, arguments[name]))
             f_out.write('\n')
 
-    def _print_argument_documentation(self):
-        """_print_argument_documentation
-
-        Prints out documentation on each of the parameters formated
-        to be included in the github readme file, including markdown.
-
-        
+               
+                      
                     
 def _get_name(names):
     name = names[0] if isinstance(names, tuple) else names
@@ -526,7 +548,50 @@ def _get_aliases(names):
     for name in names:
         aliases.append(name)
         if name[:2] == '--':
-            aliases.append('--{}'.format(name[2:].replace('-', '_')))
-            aliases.append('--{}{}'.format(name[2:].split('-')[0],
-                                           ''.join([token.capitalize() for token in name[2:].split('-')[1:]])))
-    return tuple(list(set(aliases)))
+            alias = '--{}'.format(name[2:].replace('-', '_'))
+            if alias not in aliases:
+                aliases.append(alias)
+            alias = '--{}{}'.format(name[2:].split('-')[0],
+                                    ''.join([token.capitalize() for token in name[2:].split('-')[1:]]))
+            if alias not in aliases:
+                aliases.append(alias)
+    return tuple(aliases)
+
+def _print_argument_documentation():
+    """_print_argument_documentation
+
+    Prints out documentation on each of the parameters formated
+    to be included in the github readme file, including markdown.
+    """
+    def _table_row(header, content):
+        return '<tr> {} {} </tr>'.format(_table_column(_bold(header)),
+                                         _table_column(content))
+    def _table_column(content):
+        return '<td> {} </td>'.format(content)
+    def _bold(header):
+        return '<b> {} </b>'.format(header)
+    def _list_of_code(aliases):
+        return ', '.join(['<code> {} </code>'.format(alias) for alias in aliases])
+    def _table(description, required, default, aliases):
+        return  ('<table>\n{}\n{}\n{}\n{}\n</table>\n'
+                 ''.format(_table_row('Description', description),
+                           _table_row('Required', 'Yes' if required else 'No'),
+                           _table_row('Default', default),
+                           _table_row('Aliases', _list_of_code(aliases))))
+
+    argument_parser = ArgumentParser()
+    defaults, _ = argument_parser.parse_file_arguments(argument_parser.defaults, {})
+    for group in argument_parser.argument_groups:
+        print('## {}\n'.format(group))
+        print('{}\n'.format(argument_parser.group_help[group]))
+        for arg in argument_parser.argument_groups[group]:
+            name = _get_name(arg)
+            print('### {}\n'.format(name))
+            description = argument_parser.argument_groups[group][arg]['help']
+            required = name not in defaults
+            default = None if required else defaults[name]
+            aliases = _get_aliases(arg)
+            print(_table(description, required, default, aliases))
+           
+if __name__ == '__main__':
+    _print_argument_documentation() 
