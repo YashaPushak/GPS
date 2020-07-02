@@ -7,7 +7,6 @@ verbose = 1
 
 # Scenario Arguments
 # ------------------
-algo-cutoff-time = 600
 runcount-limit = 2147483647
 wallclock-limit = 2147483647
 cputime-limit = 2147483647
