@@ -544,6 +544,7 @@ in the scenario file.
       * [post_process_multiple_test_correction](#post_process_multiple_test_correction)
       * [post_process_n_permutations](#post_process_n_permutations)
  
+
 ## Setup Arguments
 
 These are general GPS arguments that are used to set up the GPS run.
@@ -559,7 +560,7 @@ These are general GPS arguments that are used to set up the GPS run.
 ### output_dir
 
 <table>
-<tr><td><b>Description</b></td><td>The directory where output will be stored. The actual directory for a particularGPS run with ID gps_id will be stored in {experiment-dir}/{output-dir}/gps-run-{gps_id}</td></tr>
+<tr><td><b>Description</b></td><td>The directory where output will be stored. The actual directory for a particular GPS run with ID gps_id will be stored in {experiment-dir}/{output-dir}/gps-run-{gps_id}</td></tr>
 <tr><td><b>Default</b></td><td><code>gps-output</code></td></tr>
 <tr><td><b>Aliases</b></td><td><code>--output-dir</code>, <code>--output_dir</code>, <code>--outputDir</code>, <code>--output-directory</code>, <code>--output_directory</code>, <code>--outputDirectory</code>, <code>--out-dir</code>, <code>--out_dir</code>, <code>--outDir</code>, <code>--log-location</code>, <code>--log_location</code>, <code>--logLocation</code></td></tr>
 </table>
@@ -595,7 +596,7 @@ These arguments are required to configure GPS so that it connect to your redis s
 ### redis_dbid
 
 <table>
-<tr><td><b>Description</b></td><td>The redis database ID number to be used by this instance of GPS. All workers of this GPS instance must be given this ID. Each GPS instance must have a unique database ID.</td></tr>
+<tr><td><b>Description</b></td><td>The redis database ID number to be used by this instance of GPS. All workers of this GPS instance must be given this ID. Each concurrent GPS instance must have a unique database ID.</td></tr>
 <tr><td><b>Required</b></td><td>Yes</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--redis-dbid</code>, <code>--redis_dbid</code>, <code>--redisDbid</code>, <code>--dbid</code></td></tr>
 </table>
@@ -623,7 +624,7 @@ These arguments define the scenario-specific information.
 ### algo
 
 <table>
-<tr><td><b>Description</b></td><td>The command line string used to execute the target algorithm</td></tr>
+<tr><td><b>Description</b></td><td>The command line string used to execute the target algorithm.</td></tr>
 <tr><td><b>Required</b></td><td>Yes</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--algo</code>, <code>--algo-exec</code>, <code>--algo_exec</code>, <code>--algoExec</code>, <code>--algorithm</code>, <code>--wrapper</code></td></tr>
 </table>
@@ -631,7 +632,7 @@ These arguments define the scenario-specific information.
 ### algo_cutoff_time
 
 <table>
-<tr><td><b>Description</b></td><td>The CPU time limit for an individual target algorithm run, in seconds. The default is 10 minutes.</td></tr>
+<tr><td><b>Description</b></td><td>The CPU time limit for an individual target algorithm run, in seconds. If adaptive capping is used, GPS may sometimes use smaller cutoff times as well.</td></tr>
 <tr><td><b>Required</b></td><td>Yes</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--algo-cutoff-time</code>, <code>--algo_cutoff_time</code>, <code>--algoCutoffTime</code>, <code>--target-run-cputime-limit</code>, <code>--target_run_cputime_limit</code>, <code>--targetRunCputimeLimit</code>, <code>--cutoff-time</code>, <code>--cutoff_time</code>, <code>--cutoffTime</code>, <code>--cutoff</code></td></tr>
 </table>
@@ -647,7 +648,7 @@ These arguments define the scenario-specific information.
 ### instance_file
 
 <table>
-<tr><td><b>Description</b></td><td>The file (and location) containing the names (and locations) of the instances to be used to evaluate the target algorithm's configurations.</td></tr>
+<tr><td><b>Description</b></td><td>The file (and location) containing the names of the instances to be used to evaluate the target algorithm's configurations.</td></tr>
 <tr><td><b>Required</b></td><td>Yes</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--instance-file</code>, <code>--instance_file</code>, <code>--instanceFile</code>, <code>--instances</code>, <code>-i</code></td></tr>
 </table>
@@ -671,7 +672,7 @@ These arguments define the scenario-specific information.
 ### seed
 
 <table>
-<tr><td><b>Description</b></td><td>The random seed used by GPS. If -1, a random seed will be used.</td></tr>
+<tr><td><b>Description</b></td><td>The random seed used by GPS. If -1, a random value will be used. Note that because GPS is an asychronous parallel algorithm, it is not deterministic even when the seed is set to the same value, as this does not control for random background environmental noise that can affect the running times and order in which GPS receives target algorithm run updates.</td></tr>
 <tr><td><b>Default</b></td><td>-1</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--seed</code></td></tr>
 </table>
@@ -715,7 +716,7 @@ These are the parameters of GPS itself. You can use these to modify GPS to best 
 ### instance_increment
 
 <table>
-<tr><td><b>Description</b></td><td>The instance increment controls the number of instances that are queued at one time. By increasing this value GPS will effectively operate on batches of instIncr instances at one time for its intensification and queuing mechanisms. This can help to make better use of large amounts of parallel resources if the target algorithm runs can be performed very quickly and/or there are few parameters to be optimized. The instance increment must be a positive Fibonacci number. GPS will also dynamically update the value for the instance increment if it observes that there are too few tasks in the queue to keep the workers busy, or if there are too many tasks in the queue for the workers to keep up. The default is 1.</td></tr>
+<tr><td><b>Description</b></td><td>The instance increment controls the number of instances that are queued at one time. By increasing this value GPS will effectively operate on batches of instance_increment instances at one time for its intensification and queuing mechanisms. This can help to make better use of large amounts of parallel resources if the target algorithm runs can be performed very quickly and/or there are few parameters to be optimized. The instance increment must be a positive Fibonacci number. GPS will also dynamically update the value for the instance increment if it observes that there are too few tasks in the queue to keep the workers busy, or if there are too many tasks in the queue for the workers to keep up. The default is 1.</td></tr>
 <tr><td><b>Default</b></td><td>1</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--instance-increment</code>, <code>--instance_increment</code>, <code>--instanceIncrement</code>, <code>--instance-incr</code>, <code>--instance_incr</code>, <code>--instanceIncr</code></td></tr>
 </table>
@@ -723,7 +724,7 @@ These are the parameters of GPS itself. You can use these to modify GPS to best 
 ### minimum_runs
 
 <table>
-<tr><td><b>Description</b></td><td>The minimum number of run equivalents on which a configuration must be run before it can be accepted as a new incumbent. This is also the minimum number of run equivalents required before two configurations will be compared to each other using the permutation test. Configurations whose intersection of run equivalents is less than this number will be considered equal. Consequentially, brackets cannot be updated until at least this many runs have been performed for each configuration. Setting this number too large will delay or completely stop GPS from making any progress. However, setting it too small will allow GPS to make mistakes about the relative performance of two configurations with high probability. Ultimately the distribution of running times for your algorithm will impact what should be considered a good setting for you. If you can only afford to perform a single run of GPS, it is safest to set this parameter on the higher side: perhaps 10-25 (provided you can afford to at least thousands of target algorithm runs). Otherwise, 5-10 may be reasonable. Should be at least 5. The default is 5.</td></tr>
+<tr><td><b>Description</b></td><td>The minimum number of run equivalents on which a configuration must be run before it can be accepted as a new incumbent. This is also the minimum number of run equivalents required before two configurations will be compared to each other using the permutation test. Configurations whose intersection of run equivalents is less than this number will be considered equal. Consequentially, brackets cannot be updated until at least this many runs have been performed for each configuration. Setting this number too large will delay or completely stop GPS from making any progress. However, setting it too small will allow GPS to make mistakes about the relative performance of two configurations with high probability. Ultimately the distribution of running times for your algorithm will impact what should be considered a good setting for you. If you can only afford to perform a single run of GPS, it is safest to set this parameter on the higher side: perhaps 10-25 (provided you can afford at least thousands of target algorithm runs). Otherwise, 5-10 may be reasonable. Should be at least 5. The default is 5.</td></tr>
 <tr><td><b>Default</b></td><td>5</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--minimum-runs</code>, <code>--minimum_runs</code>, <code>--minimumRuns</code>, <code>--min-runs</code>, <code>--min_runs</code>, <code>--minRuns</code>, <code>--minimum-run-equivalents</code>, <code>--minimum_run_equivalents</code>, <code>--minimumRunEquivalents</code>, <code>--min-run-equivalents</code>, <code>--min_run_equivalents</code>, <code>--minRunEquivalents</code>, <code>--minimum-instances</code>, <code>--minimum_instances</code>, <code>--minimumInstances</code>, <code>--min-instances</code>, <code>--min_instances</code>, <code>--minInstances</code></td></tr>
 </table>
@@ -731,7 +732,7 @@ These are the parameters of GPS itself. You can use these to modify GPS to best 
 ### minimum_workers
 
 <table>
-<tr><td><b>Description</b></td><td>GPS must use at least two processes to run: the master process, which loops through each parameter checking for updates and queuing runs; and at least one worker process, which perform target algorithm runs. By default, GPS's master process will setup the scenario files and then wait until it has received a notification that at least one worker is ready to begin. GPS does not count any time while waiting towards its total configuration budget. This parameter controls the minimum number of workers that need to be ready in order for GPS's master process to start. Note that it does not place any restriction on the maximum number of workers. If you set this value to 1, you can still point an unlimitted number of workers to the same GPS ID and they will run. This parameter is only used when starting GPS. If some or all of the workers crash crash unexpectedly, the master process will continue running until it has exhausted its configuration budget (which may be never if the configuration budget is based on the maximum number of target algorithm runs). This must be a non-negative integer. The default is 1.</td></tr>
+<tr><td><b>Description</b></td><td>GPS must use at least two processes to run: the master process, which loops through each parameter checking for updates and queuing runs; and at least one worker process, which perform target algorithm runs. By default, GPS's master process will setup the scenario files and then wait until it has received a notification that at least one worker is ready to begin. GPS does not count any time while waiting towards its total configuration budget. This parameter controls the minimum number of workers that need to be ready in order for GPS's master process to start. Note that it does not place any restriction on the maximum number of workers. If you set this value to 1, you can still point an unlimitted number of workers to the same GPS ID and they will run. This parameter is only used when starting GPS. If some or all of the workers crash unexpectedly, the master process will continue running until it has exhausted its configuration budget (which may be never if the configuration budget is based on the maximum number of target algorithm runs). This must be a non-negative integer. The default is 1.</td></tr>
 <tr><td><b>Default</b></td><td>1</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--minimum-workers</code>, <code>--minimum_workers</code>, <code>--minimumWorkers</code>, <code>--min-workers</code>, <code>--min_workers</code>, <code>--minWorkers</code></td></tr>
 </table>
@@ -755,7 +756,7 @@ These are the parameters of GPS itself. You can use these to modify GPS to best 
 ### sleep_time
 
 <table>
-<tr><td><b>Description</b></td><td>When there the master or worker processes are blocked waiting for new results/tasks to be pushed to the database, they will sleep for this amount of time, measured in CPU seconds.The default is 0.</td></tr>
+<tr><td><b>Description</b></td><td>When the master or worker processes are blocked waiting for new results/tasks to be pushed to the database, they will sleep for this amount of time, measured in CPU seconds.The default is 0.</td></tr>
 <tr><td><b>Default</b></td><td>0.0</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--sleep-time</code>, <code>--sleep_time</code>, <code>--sleepTime</code></td></tr>
 </table>
@@ -791,10 +792,11 @@ GPS comes with a currently-undocumented post-processing procedure that can be us
 ### post_process_n_permutations
 
 <table>
-<tr><td><b>Description</b></td><td>The number of permutations performed by the permutation test of the during GPS's optional incumbent post-processing procedure. Recommended to be at least 10000 to obtain stable permutation test results. Set it higher if you are using a smaller significance level or are performing the procedure on many combined, independent GPS runs, as the significance level will be smaller in such cases in order to perform multiple test correction. Must be a positive integer greater than 1000. The default is 10000.</td></tr>
+<tr><td><b>Description</b></td><td>The number of permutations performed by the permutation test during GPS's optional incumbent post-processing procedure. Recommended to be at least 10000 to obtain stable permutation test results. Set it higher if you are using a smaller significance level or are performing the procedure on many combined, independent GPS runs, as the significance level will be smaller in such cases in order to perform multiple test correction. Must be a positive integer greater than 1000. The default is 10000.</td></tr>
 <tr><td><b>Default</b></td><td>10000</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--post-process-n-permutations</code>, <code>--post_process_n_permutations</code>, <code>--postProcessNPermutations</code>, <code>--post-process-number-of-permutations</code>, <code>--post_process_number_of_permutations</code>, <code>--postProcessNumberOfPermutations</code></td></tr>
 </table>
+
 
 
 # Contact
