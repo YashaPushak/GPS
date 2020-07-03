@@ -28,7 +28,7 @@ In Parallel.**
 *In Proceedings of the Twenty-Second Interntional Genetic and Evolutionary 
 Computation Conference (GECCO 2020)*. pp 245-253 (2020).  
 ```diff
- - Nominated for a GECCO 2020 best paper award - final decision to be 
+- Nominated for a GECCO 2020 best paper award - final decision to be 
 determined at GECCO 2020
 ```
  - Yasha Pushak and Holger H. Hoos.  
@@ -36,7 +36,7 @@ determined at GECCO 2020
 *In Proceedings of the Fifteenth Internationl Conference on Parallel Problem 
 Solving from Nature (PPSN 2018)*. pp 271-283 (2018).  
 ```diff
- - Won the 2018 PPSN best paper award.
+- Won the 2018 PPSN best paper award.
 ```
 
 # Table of Contents
