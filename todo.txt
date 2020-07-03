@@ -1,6 +1,4 @@
-- Figure out why the PGS args help printout has alias names used for many parameters.
 - Copy the instance file and pcs file to the output location
 - Improve the documentation for the installation instructions.
-- Create documentation for the parameters other than from running GPS with --help.
 - Add support for solution quality optimization
 - Convert to python3
