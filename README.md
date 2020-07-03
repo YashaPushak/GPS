@@ -24,15 +24,15 @@ If you use GPS in your work, please consider citing our paper.
 
  - Yasha Pushak and Holger H. Hoos.  
 **Golden Parameter Search: Exploiting Structure to Quickly Configure Parameters
-In Parallel.**
+In Parallel.**  
 *In Proceedings of the Twenty-Second Interntional Genetic and Evolutionary 
-Computation Conference (GECCO 2020)*. pp 245--253 (2020).  
-**Nominated for a GECCO 2020 best paper award -- final decision to be 
+Computation Conference (GECCO 2020)*. pp 245-253 (2020).  
+**Nominated for a GECCO 2020 best paper award - final decision to be 
 determined at GECCO 2020**
  - Yasha Pushak and Holger H. Hoos.  
 **Algorithm Configuration Landscapes: More Benign than Expected?**  
 *In Proceedings of the Fifteenth Internationl Conference on Parallel Problem 
-Solving from Nature (PPSN 2018)*. pp 271--283 (2018).  
+Solving from Nature (PPSN 2018)*. pp 271-283 (2018).  
 **Won the 2018 PPSN best paper award.**
 
 # Table of Contents
