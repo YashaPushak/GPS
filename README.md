@@ -209,7 +209,27 @@ the console from the master process:
     [INFO]:2020-07-02 11:40:34,071: Final Incumbent:  -heuristic 'a' -x0 '5' -x1 '0.999546896146'
 
 However, since GPS is a randomized algorithm the exact output will vary. 
-See `examples/artificial-algorithm/readme.txt` for more information.
+See `examples/artificial-algorithm/readme.txt` for more information about
+this scenario.
+
+## Experiment Directory
+
+Rather than running everything from the GPS root directory, it is often more
+convenient to specify the location from which the experiment should be run 
+using the `experiment-dir` argument. When this is done, all other relative file 
+and directory paths should be specified relative to this directory. Note that
+GPS will then change to this directory prior to beginning to run, which means
+that any relative paths used internally by your target algorithm or wrapper 
+must be available from your experiment directory.
+
+This is also a convenient way to help organize the several output files used
+by GPS, as they will be stored in this experiment directory rather than the
+directory from which you called GPS. To continue our running example, you
+would start the master process with the following command line call:
+
+    python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --algo 'python2 algorithm.py' --instance_file instances.txt --pcs-file params.pcs --algo-cutoff-time 600 --runcount-limit 400 --cputime-limit 14400 --redis-dbid 0
+
+The call for the worker process remains the same.
 
 ## Using a Scenario file
 
@@ -235,30 +255,13 @@ argument specifications:
 Any line that begins with `#` is treated as a comment and ignored. You can then start the
 GPS master process using:
 
-    python2 run_gps_master.py --scenario-file examples/artificial-algorithm/scenario.txt --redis-dbid 0
+    python2 run_gps_master.py --experiment-dir examples/artificial-algorithm --scenario-file scenario.txt --redis-dbid 0
 
 The call for the worker process remains the same.
 
 Any argument than can be specified on the command line can also be specified in a scenario
 file. If the same argument is defined multiple times, the order of precedence will be:
 command line > scenario file > redis configuration file > GPS default values.
-
-## Experiment Directory
-
-Rather than running everything from the GPS root directory, it is often more
-convenient to specify the location from which the experiment should be run 
-using the `experiment-dir` argument. When this is done, all other relative file 
-and directory paths should be specified relative to this directory. Note that
-GPS will then change to this directory prior to beginning to run, which means
-that any relative paths used internally by your target algorithm or wrapper 
-must be available from your experiment directory.
-
-This is also a convenient way to help organize the several output files used
-by GPS, as they will be stored in this experiment directory rather than the
-directory from which you called GPS. To continue our running example, you
-would start the master process with the following command line call:
-
-    python2 run_gps_master.py --experiment-dir examples/artificial-algorithm/ --scenario-file scenario.txt --redis-dbid 0
 
 ## Temporary File Directory - **Important**
 
