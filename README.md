@@ -147,8 +147,10 @@ your redis database server. Normally, you will want to specify both the
 redis host and port using the `redis_configuration.txt` file in the main
 GPS directory, as these will typically not change between GPS runs. For
 example, the file contents could be:
+
     redis-host = localhost
     redis-port = 9503
+
 If you choose, you can also specify this information on the command line:
 `--redis-host localhost --redis-port 9503`.
 
