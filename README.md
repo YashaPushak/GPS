@@ -57,26 +57,20 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
 # Installing GPS
 
  1. Create a python2.7 virtual environment
-
  2. Download the latest version of the parameter configuration space parser
 from https://github.com/YashaPushak/PCS 
-
  3. While in the main PCS directory, install PCS with 
-    pip install .
+`pip install .`
 or
-    python setup.py install --user
-
+`python setup.py install --user`.
  4. Download the latest version of GPS from https://github.com/YashaPushak/GPS
-
  5. While in the main GPS directory, install GPS's other required python 
 packages
-    pip install -r requirements.txt
-
+`pip install -r requirements.txt`.
  6. While in the main GPS directory, install GPS with 
-    pip install .
+`pip install .`
 or 
-    python setup.py install --user
-
+`python setup.py install --user`
  7. Setup and install a redis database.
 
 # Quick Start Guide
