@@ -1,9 +1,11 @@
 # Golden Parameter Search (GPS)
 
-Golden Parameter Search (GPS) is an automated algorithm congifuration 
-procedure. That is, it seeks to optimize the performance (in terms of
-running time) of a target algorithm on a set of instances by automatically
-finding high-quality values for the parameters of the target algorithm.
+Golden Parameter Search (GPS) [Pushak & Hoos, 2020] is an automated 
+algorithm congifuration procedure. That is, it seeks to optimize the 
+performance of a target algorithm on a set of instances by automatically 
+finding high-quality values for the parameters of the target algorithm. 
+Currently, GPS only supports optimization of the running time of target 
+algorithms. Solution quality optimization will be available soon.
 
 GPS is the first automated algorithm configuration procedure to exploit
 recent insights into the structural properties of algorithm configuration
@@ -11,12 +13,26 @@ landscapes [Pushak & Hoos, 2018]. In particular, GPS assumes that each
 parameter of the target algoritm effects a uni-modal response in the 
 performance of the algorithm, when modified individually. Furthermore,
 GPS assumes that most parameters of the target algorithm do not strongly
-interact, thereby allowing GPS to optimize each parameter semi-independetly
+interact, thereby allowing GPS to optimize each parameter semi-independently
 in parallel. These two assumptions allow GPS to quickly and efficiently explore
 the parameter configuration space. However, if you have reason to believe that
 your particular target algorithm contains parameters that strongly violates
 either of these two assumptions, then GPS may not be the appropriate algorithm
 configuration procedure for you. 
+
+If you use GPS in your work, please consider citing our paper.
+
+ - Yasha Pushak and Holger H. Hoos. Golden Parameter Search: Exploiting 
+Structure to Quickly Configure Parameters In Parallel. In Proceedings of the
+Twenty-Second Interntional Genetic and Evolutionary Computation Conference 
+(GECCO 2020). pp 245--253 (2020).
+<\br>
+**Nominated for a GECCO 2020 best paper award -- final decision to be determined at GECCO 2020**
+ - Yasha Pushak and Holger H. Hoos. Algorithm Configuration Landscapes: More
+Benign than Expected? In Proceedings of the Fifteenth Internationl Conference
+on Parallel Problem SOlving from Nature (PPSN 2018). pp 271--283 (2018).
+<\br>
+**Won the 2018 PPSN best paper award.**
 
 # Table of Contents
 
