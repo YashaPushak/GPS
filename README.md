@@ -26,6 +26,7 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
 
 # Table of Contents
 
+
    * [Golden Parameter Search (GPS)](#golden-parameter-search-gps)
    * [A Note on Current GPS Status](#a-note-on-current-gps-status)
    * [Table of Contents](#table-of-contents)
@@ -36,16 +37,15 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
       * [Using a Scenario file](#using-a-scenario-file)
       * [Experiment Directory](#experiment-directory)
       * [Temporary File Directory - <strong>Important</strong>](#temporary-file-directory---important)
-   * [Extended Usage Instructions](#extended-usage-instructions)
-      * [Target Algorithm Wrapper](#target-algorithm-wrapper)
-         * [Target Algorithm Wrapper Input](#target-algorithm-wrapper-input)
-         * [Target Algorithm Wrapper Output](#target-algorithm-wrapper-output)
-      * [Instance File Format](#instance-file-format)
-      * [Parameter Configuration Space File Format](#parameter-configuration-space-file-format)
-         * [Conditional Parameters](#conditional-parameters)
-         * [Example Configuration Space](#example-configuration-space)
-         * [Forbidden Statements](#forbidden-statements)
-         * [Old Parameter Configuration Space Syntax](#old-parameter-configuration-space-syntax)
+   * [Target Algorithm Wrapper](#target-algorithm-wrapper)
+      * [Target Algorithm Wrapper Input](#target-algorithm-wrapper-input)
+      * [Target Algorithm Wrapper Output](#target-algorithm-wrapper-output)
+   * [Instance File Format](#instance-file-format)
+   * [Parameter Configuration Space File Format](#parameter-configuration-space-file-format)
+      * [Conditional Parameters](#conditional-parameters)
+      * [Example Configuration Space](#example-configuration-space)
+      * [Forbidden Statements](#forbidden-statements)
+      * [Old Parameter Configuration Space Syntax](#old-parameter-configuration-space-syntax)
    * [GPS Arguments](#gps-arguments)
       * [Setup Arguments](#setup-arguments)
       * [Redis Arguments](#redis-arguments)
@@ -56,18 +56,28 @@ on how to use it. We anticipate completing this work no later than 2020-07-08.
 
 # Installing GPS
 
- - Create a python2.7 virtual environment
- - Download the latest version of the parameter configuration space parser
+ 1. Create a python2.7 virtual environment
+
+ 2. Download the latest version of the parameter configuration space parser
 from https://github.com/YashaPushak/PCS 
- - While in the main PCS directory, install PCS with 
-`pip install .`
+
+ 3. While in the main PCS directory, install PCS with 
+    pip install .
 or
-`python setup.py install --user`.
- - Download the latest version of GPS from https://github.com/YashaPushak/GPS
- - While in the main GPS directory, install GPS's other required python 
+    python setup.py install --user
+
+ 4. Download the latest version of GPS from https://github.com/YashaPushak/GPS
+
+ 5. While in the main GPS directory, install GPS's other required python 
 packages
-`pip install -r requirements.txt`.
- - Setup a redis database.
+    pip install -r requirements.txt
+
+ 6. While in the main GPS directory, install GPS with 
+    pip install .
+or 
+    python setup.py install --user
+
+ 7. Setup and install a redis database.
 
 # Quick Start Guide
 
@@ -279,12 +289,7 @@ cluster, it is unproblematic for each worker to have access to separate
 temporary file directories. 
 
 
-# Extended Usage Instructions
-
-The following contains more detailed information about the input and
-output for GPS.
-
-## Target Algorithm Wrapper
+# Target Algorithm Wrapper
 
 When performing automated algorithm configuration, it is typical to use a
 target algorithm wrapper that implements a particular interface between
@@ -299,7 +304,7 @@ interface as SMAC and ParamILS, which means that you can directly use any
 scenarios set up for use with the generic wrapper for algorithm 
 configuration available from https://github.com/automl/GenericWrapper4AC.
 
-### Target Algorithm Wrapper Input
+## Target Algorithm Wrapper Input
 
 The format for the wrapper command line calls must conform to the following:
 
@@ -324,7 +329,7 @@ single quotes. If you specify any conditional, parent-child relationships
 between your parameters, GPS will automatically remove any disabled children
 parameters prior to passing the configuration to your wrapper.
 
-### Target Algorithm Wrapper Output
+## Target Algorithm Wrapper Output
 
 The wrapper may output any amount of information to the command line. However,
 each call to the wrapper should produce exactly one line of output in the
@@ -356,7 +361,7 @@ target algorithm run that you choose. GPS parses it as a string, but otherwise
 ignores this information. For backwards compatibility with other configurators,
 this field should not contain any commas.
 
-## Instance File Format
+# Instance File Format
 
 GPS requires that a text file that specifies the problem instances on which 
 your target algorithm should be evaluated. Each line specifies the name of an
@@ -367,7 +372,7 @@ contain any spaces.
 
 At this time, GPS does not support instance-specific information.
 
-## Parameter Configuration Space File Format
+# Parameter Configuration Space File Format
 
 GPS requires a file that specifies the parameters of your target algorithm
 that are to be configured, containing the type of each parameter, the domain of
@@ -420,7 +425,7 @@ Currently this option is ignored by GPS.
 You may also optionally append a `#` followed by any text to the end of any
 line, will GPS will treat this as a comment and ingore it.
 
-### Conditional Parameters
+## Conditional Parameters
 
 GPS also accepts conditional parameters, which may be specified using the
 following syntax:
@@ -429,9 +434,9 @@ following syntax:
 
 GPS does not support other operators, for example `in` or `>`. If you need to 
 support this behaviour, you must create one child parameter for each value of
-the parameter parameter that should enable the child. 
+the parameter parameter that should enable the child (see example below). 
 
-### Example Configuration Space
+## Example Configuration Space
 
 The following configuration space is an extended version of the one used in the
 artificial algorithm example, designed to also illustrate conditional parameters.
@@ -472,7 +477,7 @@ artificial algorithm example, designed to also illustrate conditional parameters
     sample_probability_copy real [0, 1] [0.05]
     sample_probability_copy | heuristic == b
 
-### Forbidden Statements
+## Forbidden Statements
 
 GPS does not currently support forbidden statements. If there are combinations 
 of parameter values that do not yield valid confiugraitons, then you can
@@ -483,7 +488,7 @@ algorithm configurator (e.g., SMAC), since GPS assumes that your target
 algorithm parameters do not interact strongly, and hence this could cause
 performance degradation for GPS.
 
-### Old Parameter Configuration Space Syntax
+## Old Parameter Configuration Space Syntax
 
 GPS also supports the old parameter configuration space syntax. For example:
 
