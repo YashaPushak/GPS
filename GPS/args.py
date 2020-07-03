@@ -24,7 +24,7 @@ class ArgumentParser:
                         'then they must be given relative to your experiment directory.',
                 'type': _validate(str, 'The experiment directory must be a valid directory', lambda x: helper.isDir(x))},
             ('--output-dir', '--output-directory', '--out-dir', '--log-location'): {
-                'help': 'The directory where output will be stored. The actual directory for a particular'
+                'help': 'The directory where output will be stored. The actual directory for a particular '
                         'GPS run with ID gps_id will be stored in {experiment-dir}/{output-dir}/gps-run-{gps_id}',
                 'type': str},
             ('--temp-dir', '--temp', '--temporary-directory'): {
@@ -57,7 +57,7 @@ class ArgumentParser:
                 'type': int},
             ('--redis-dbid', '--dbid'): {
                 'help': 'The redis database ID number to be used by this instance of GPS. All workers '
-                        'of this GPS instance must be given this ID. Each GPS instance must have a '
+                        'of this GPS instance must be given this ID. Each concurrent GPS instance must have a '
                         'unique database ID.',
                 'type': int},
         }
@@ -68,15 +68,15 @@ class ArgumentParser:
                         'GPS supports a subset of the syntax used for SMAC and ParamILS.',
                 'type': str},
             ('--instance-file', '--instances', '-i'): {
-                'help': 'The file (and location) containing the names (and locations) of the instances to '
+                'help': 'The file (and location) containing the names of the instances to '
                         'be used to evaluate the target algorithm\'s configurations.',
                 'type': str},
             ('--algo', '--algo-exec', '--algorithm', '--wrapper'): {
-                'help': 'The command line string used to execute the target algorithm',
+                'help': 'The command line string used to execute the target algorithm.',
                 'type': str},
             ('--algo-cutoff-time', '--target-run-cputime-limit', '--cutoff-time', '--cutoff'): {
-                'help': 'The CPU time limit for an individual target algorithm run, in seconds. The default '
-                        'is 10 minutes.',
+                'help': 'The CPU time limit for an individual target algorithm run, in seconds. If adaptive '
+                        'capping is used, GPS may sometimes use smaller cutoff times as well.',
                 'type': _validate(float, 'The cutoff time must be a real, positive number', lambda x: float(x) > 0)},
             ('--runcount-limit', '--total-num-runs-limit', '--num-runs-limit', '--number-of-runs-limit'): {
                 'help': 'Limits the total number of target algorithm runs performed by GPS. Either this, '
@@ -96,7 +96,11 @@ class ArgumentParser:
                         'this limit.',
                 'type': _validate(float, 'The CPU time limit must be a positive, real number', lambda x: float(x) > 0)},
             ('--seed',): {
-                'help': 'The random seed used by GPS. If -1, a random seed will be used.',
+                'help': 'The random seed used by GPS. If -1, a random value will be used. Note that because '
+                        'GPS is an asychronous parallel algorithm, it is not deterministic even when the seed '
+                        'is set to the same value, as this does not control for random background environmental '
+                        'noise that can affect the running times and order in which GPS receives target '
+                        'algorithm run updates.',
                 'type': _validate(int, 'The seed must be a positive integer or -1', lambda x: int(x) >= -1)}
         }
         
@@ -115,7 +119,7 @@ class ArgumentParser:
                         'distribution of running times for your algorithm will impact what should be considered '
                         'a good setting for you. If you can only afford to perform a single run of GPS, it is '
                         'safest to set this parameter on the higher side: perhaps 10-25 (provided you can afford '
-                        'to at least thousands of target algorithm runs). Otherwise, 5-10 may be reasonable. ' 
+                        'at least thousands of target algorithm runs). Otherwise, 5-10 may be reasonable. ' 
                         'Should be at least 5. The default is 5.',
                 'type': _validate(int, 'The minimum run (equivalents) must be an integer greater than or equal to 5',
                                  lambda x: int(x) >=5)},
@@ -150,17 +154,17 @@ class ArgumentParser:
                 'type': _validate_bound_multiplier},
             ('--instance-increment', '--instance-incr',): {
                 'help': 'The instance increment controls the number of instances that are queued at one time. '
-                        'By increasing this value GPS will effectively operate on batches of instIncr instances at '
-                        'one time for its intensification and queuing mechanisms. This can help to make better use '
-                        'of large amounts of parallel resources if the target algorithm runs can be performed very '
-                        'quickly and/or there are few parameters to be optimized. The instance increment must be a '
-                        'positive Fibonacci number. GPS will also dynamically update the value for the instance '
-                        'increment if it observes that there are too few tasks in the queue to keep the workers '
-                        'busy, or if there are too many tasks in the queue for the workers to keep up. The default '
-                        'is 1.',
+                        'By increasing this value GPS will effectively operate on batches of instance_increment '
+                        'instances at one time for its intensification and queuing mechanisms. This can help to '
+                        'make better use of large amounts of parallel resources if the target algorithm runs can '
+                        'be performed very quickly and/or there are few parameters to be optimized. The instance '
+                        'increment must be a positive Fibonacci number. GPS will also dynamically update the '
+                        'value for the instance increment if it observes that there are too few tasks in the '
+                        'queue to keep the workers busy, or if there are too many tasks in the queue for the '
+                        'workers to keep up. The default is 1.',
                 'type': _validate(int, 'The instance increment must be a positive fibonnaci number', lambda x: int(x) > 0)},
             ('--sleep-time',): {
-                'help': 'When there the master or worker processes are blocked waiting for new results/tasks to be '
+                'help': 'When the master or worker processes are blocked waiting for new results/tasks to be '
                         'pushed to the database, they will sleep for this amount of time, measured in CPU seconds.'
                         'The default is 0.',
                 'type': _validate(float, 'The sleep time must be a positive, real number', lambda x: float(x) >= 0)},
@@ -175,7 +179,7 @@ class ArgumentParser:
                         'any restriction on the maximum number of workers. If you set this value to 1, you can '
                         'still point an unlimitted number of workers to the same GPS ID and they will run. '
                         'This parameter is only used when starting GPS. If some or all of the workers crash '
-                        'crash unexpectedly, the master process will continue running until it has exhausted its '
+                        'unexpectedly, the master process will continue running until it has exhausted its '
                         'configuration budget (which may be never if the configuration budget is based on the '
                         'maximum number of target algorithm runs). This must be a non-negative integer. The '
                         'default is 1.',
@@ -223,7 +227,7 @@ class ArgumentParser:
                 'type': _validate(float, 'The post-process-alpha parameter must be a float in (0, 0.25]',
                                   lambda x: 0 < float(x) <= 0.25)},
             ('--post-process-n-permutations', '--post-process-number-of-permutations'): {
-                'help': 'The number of permutations performed by the permutation test of the during GPS\'s '
+                'help': 'The number of permutations performed by the permutation test during GPS\'s '
                         'optional incumbent post-processing procedure. Recommended to be at least 10000 to '
                         'obtain stable permutation test results. Set it higher if you are using a smaller '
                         'significance level or are performing the procedure on many combined, independent '
@@ -597,7 +601,7 @@ def _print_argument_documentation():
     defaults, _ = argument_parser.parse_file_arguments(argument_parser.defaults, {})
     for group in argument_parser.groups_in_order:
         print('## {}\n'.format(group))
-        print('{}\n'.format(argument_parser.group_help[group]))
+        print('{}\n'.format(_abreviations_to_italics(argument_parser.group_help[group])))
         arguments = sorted(list(argument_parser.argument_groups[group].keys()))
         for arg in arguments:
             name = _get_name(arg)
