@@ -29,7 +29,6 @@ In Parallel.**
 Computation Conference (GECCO 2020)*. pp 245-253 (2020).  
 **Nominated for a GECCO 2020 best paper award - final decision to be 
 determined at GECCO 2020**
-```
  - Yasha Pushak and Holger H. Hoos.  
 **Algorithm Configuration Landscapes: More Benign than Expected?**  
 *In Proceedings of the Fifteenth Internationl Conference on Parallel Problem 
