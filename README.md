@@ -246,21 +246,23 @@ argument specifications:
     # Whichever budget limit is reached first will terminate GPS
     runcount_limit = 400
     # Note that GPS only counts the times reported by your target algorithm in this limit
-    # So even though we are giving it a 4 hour (14400 seconds), it should actually terminate
+    # So even though we are giving it 4 hours (14400 seconds), it should actually terminate
     # in around 1-3 minutess, since our artificial algorithm actually spends far less time
     # than it returns
     cputime_limit = 14400
     verbose = 1
 
-Any line that begins with `#` is treated as a comment and ignored. You can then start the
-GPS master process using:
+Any line that begins with `#` is treated as a comment and ignored. 
+
+You can then start the GPS master process using:
 
     python2 run_gps_master.py --experiment-dir examples/artificial-algorithm --scenario-file scenario.txt --redis-dbid 0
 
 The call for the worker process remains the same.
 
-Any argument than can be specified on the command line can also be specified in a scenario
-file. If the same argument is defined multiple times, the order of precedence will be:
+Any argument that can be specified on the command line can also be specified 
+in a scenario file (except the scenario file itself). If the same argument is
+defined multiple times, the order of precedence will be:
 command line > scenario file > redis configuration file > GPS default values.
 
 ## Temporary File Directory - **Important**
