@@ -18,17 +18,10 @@ your particular target algorithm contains parameters that strongly violates
 either of these two assumptions, then GPS may not be the appropriate algorithm
 configuration procedure for you. 
 
-# A Note on Current GPS Status
-
-This repository is actively being updated to include a new command line
-interface for interacting with GPS, along with substantially more documentation
-on how to use it. We anticipate completing this work no later than 2020-07-08.
-
 # Table of Contents
 
 
    * [Golden Parameter Search (GPS)](#golden-parameter-search-gps)
-   * [A Note on Current GPS Status](#a-note-on-current-gps-status)
    * [Table of Contents](#table-of-contents)
    * [Installing GPS](#installing-gps)
    * [Quick Start Guide](#quick-start-guide)
