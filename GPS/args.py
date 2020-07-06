@@ -24,7 +24,7 @@ class ArgumentParser:
                         'then they must be given relative to your experiment directory.',
                 'type': _validate(str, 'The experiment directory must be a valid directory', lambda x: helper.isDir(x))},
             ('--output-dir', '--output-directory', '--out-dir', '--log-location'): {
-                'help': 'The directory where output will be stored. The actual directory for a particular'
+                'help': 'The directory where output will be stored. The actual directory for a particular '
                         'GPS run with ID gps_id will be stored in {experiment-dir}/{output-dir}/gps-run-{gps_id}',
                 'type': str},
             ('--temp-dir', '--temp', '--temporary-directory'): {
@@ -57,7 +57,7 @@ class ArgumentParser:
                 'type': int},
             ('--redis-dbid', '--dbid'): {
                 'help': 'The redis database ID number to be used by this instance of GPS. All workers '
-                        'of this GPS instance must be given this ID. Each GPS instance must have a '
+                        'of this GPS instance must be given this ID. Each concurrent GPS instance must have a '
                         'unique database ID.',
                 'type': int},
         }
@@ -68,15 +68,15 @@ class ArgumentParser:
                         'GPS supports a subset of the syntax used for SMAC and ParamILS.',
                 'type': str},
             ('--instance-file', '--instances', '-i'): {
-                'help': 'The file (and location) containing the names (and locations) of the instances to '
+                'help': 'The file (and location) containing the names of the instances to '
                         'be used to evaluate the target algorithm\'s configurations.',
                 'type': str},
             ('--algo', '--algo-exec', '--algorithm', '--wrapper'): {
-                'help': 'The command line string used to execute the target algorithm',
+                'help': 'The command line string used to execute the target algorithm.',
                 'type': str},
             ('--algo-cutoff-time', '--target-run-cputime-limit', '--cutoff-time', '--cutoff'): {
-                'help': 'The CPU time limit for an individual target algorithm run, in seconds. The default '
-                        'is 10 minutes.',
+                'help': 'The CPU time limit for an individual target algorithm run, in seconds. If adaptive '
+                        'capping is used, GPS may sometimes use smaller cutoff times as well.',
                 'type': _validate(float, 'The cutoff time must be a real, positive number', lambda x: float(x) > 0)},
             ('--runcount-limit', '--total-num-runs-limit', '--num-runs-limit', '--number-of-runs-limit'): {
                 'help': 'Limits the total number of target algorithm runs performed by GPS. Either this, '
@@ -96,7 +96,11 @@ class ArgumentParser:
                         'this limit.',
                 'type': _validate(float, 'The CPU time limit must be a positive, real number', lambda x: float(x) > 0)},
             ('--seed',): {
-                'help': 'The random seed used by GPS. If -1, a random seed will be used.',
+                'help': 'The random seed used by GPS. If -1, a random value will be used. Note that because '
+                        'GPS is an asychronous parallel algorithm, it is not deterministic even when the seed '
+                        'is set to the same value, as this does not control for random background environmental '
+                        'noise that can affect the running times and order in which GPS receives target '
+                        'algorithm run updates.',
                 'type': _validate(int, 'The seed must be a positive integer or -1', lambda x: int(x) >= -1)}
         }
         
@@ -115,7 +119,7 @@ class ArgumentParser:
                         'distribution of running times for your algorithm will impact what should be considered '
                         'a good setting for you. If you can only afford to perform a single run of GPS, it is '
                         'safest to set this parameter on the higher side: perhaps 10-25 (provided you can afford '
-                        'to at least thousands of target algorithm runs). Otherwise, 5-10 may be reasonable. ' 
+                        'at least thousands of target algorithm runs). Otherwise, 5-10 may be reasonable. ' 
                         'Should be at least 5. The default is 5.',
                 'type': _validate(int, 'The minimum run (equivalents) must be an integer greater than or equal to 5',
                                  lambda x: int(x) >=5)},
@@ -150,17 +154,17 @@ class ArgumentParser:
                 'type': _validate_bound_multiplier},
             ('--instance-increment', '--instance-incr',): {
                 'help': 'The instance increment controls the number of instances that are queued at one time. '
-                        'By increasing this value GPS will effectively operate on batches of instIncr instances at '
-                        'one time for its intensification and queuing mechanisms. This can help to make better use '
-                        'of large amounts of parallel resources if the target algorithm runs can be performed very '
-                        'quickly and/or there are few parameters to be optimized. The instance increment must be a '
-                        'positive Fibonacci number. GPS will also dynamically update the value for the instance '
-                        'increment if it observes that there are too few tasks in the queue to keep the workers '
-                        'busy, or if there are too many tasks in the queue for the workers to keep up. The default '
-                        'is 1.',
+                        'By increasing this value GPS will effectively operate on batches of instance_increment '
+                        'instances at one time for its intensification and queuing mechanisms. This can help to '
+                        'make better use of large amounts of parallel resources if the target algorithm runs can '
+                        'be performed very quickly and/or there are few parameters to be optimized. The instance '
+                        'increment must be a positive Fibonacci number. GPS will also dynamically update the '
+                        'value for the instance increment if it observes that there are too few tasks in the '
+                        'queue to keep the workers busy, or if there are too many tasks in the queue for the '
+                        'workers to keep up. The default is 1.',
                 'type': _validate(int, 'The instance increment must be a positive fibonnaci number', lambda x: int(x) > 0)},
             ('--sleep-time',): {
-                'help': 'When there the master or worker processes are blocked waiting for new results/tasks to be '
+                'help': 'When the master or worker processes are blocked waiting for new results/tasks to be '
                         'pushed to the database, they will sleep for this amount of time, measured in CPU seconds.'
                         'The default is 0.',
                 'type': _validate(float, 'The sleep time must be a positive, real number', lambda x: float(x) >= 0)},
@@ -175,7 +179,7 @@ class ArgumentParser:
                         'any restriction on the maximum number of workers. If you set this value to 1, you can '
                         'still point an unlimitted number of workers to the same GPS ID and they will run. '
                         'This parameter is only used when starting GPS. If some or all of the workers crash '
-                        'crash unexpectedly, the master process will continue running until it has exhausted its '
+                        'unexpectedly, the master process will continue running until it has exhausted its '
                         'configuration budget (which may be never if the configuration budget is based on the '
                         'maximum number of target algorithm runs). This must be a non-negative integer. The '
                         'default is 1.',
@@ -201,7 +205,7 @@ class ArgumentParser:
                         'post-processing the output from one or more GPS runs to help protect against these '
                         'kinds of mistakes made by GPS. However, preliminary results testing this method '
                         'currently indicates that it typically decreases the performance of the incumbents '
-                        'returned by GPS. Should be \'True\' or \'False\'. The default is \'False\'.'
+                        'returned by GPS. Should be \'True\' or \'False\'. The default is \'False\'.',
                 'type': _validate(_to_bool, "The post-process-incumbent parameter must be 'True' or 'False'")}, 
         }
 
@@ -223,7 +227,7 @@ class ArgumentParser:
                 'type': _validate(float, 'The post-process-alpha parameter must be a float in (0, 0.25]',
                                   lambda x: 0 < float(x) <= 0.25)},
             ('--post-process-n-permutations', '--post-process-number-of-permutations'): {
-                'help': 'The number of permutations performed by the permutation test of the during GPS\'s '
+                'help': 'The number of permutations performed by the permutation test during GPS\'s '
                         'optional incumbent post-processing procedure. Recommended to be at least 10000 to '
                         'obtain stable permutation test results. Set it higher if you are using a smaller '
                         'significance level or are performing the procedure on many combined, independent '
@@ -239,12 +243,46 @@ class ArgumentParser:
                 'type': _validate(_to_bool, "The post-process multiple test correction parameter must be "
                                             "'True' or 'False'")},
         }
-        
+        self.groups_in_order = ['Setup Arguments', 'Redis Arguments', 'Scenario Arguments', 'GPS Parameters',
+                                'Post-Process Parameters']
         self.argument_groups = {'Setup Arguments': self.setup_arguments,
                                 'Redis Arguments': self.redis_arguments,
                                 'Scenario Arguments': self.scenario_arguments,
                                 'GPS Parameters': self.gps_parameters,
                                 'Post-Process Parameters': self.postprocess_parameters}
+        self.group_help = {'Setup Arguments': 'These are general GPS arguments that are used to set up '
+                                              'the GPS run.',
+                           'Redis Arguments': 'These arguments are required to configure GPS so that it '
+                                              'connect to your redis server installation, which it uses '
+                                              'to communicate between master and worker processes.',
+                           'Scenario Arguments': 'These arguments define the scenario-specific '
+                                                 'information.',
+                           'GPS Parameters': 'These are the parameters of GPS itself. You can use these '
+                                             'to modify GPS to best suit your scenario, if desired. '
+                                             'Unless you know what you are doing, '
+                                             'we recommend not to change these parameters from their '
+                                             'defaults, as they have been chosen through careful '
+                                             'experimentation. However, we did this manually, so if '
+                                             'you have a large enough budget, you could always apply '
+                                             'GPS to configure itself, which would no doubt improve '
+                                             'the performance of GPS ;) . If you do this, please get in ' 
+                                             'touch! We would love to validate your GPS configuration '
+                                             'and include it as the new default settings. ',
+                           'Post-Process Parameters': 'GPS comes with a currently-undocumented post-'
+                                                      'processing procedure that can be used to post-'
+                                                      'process the output from one or more runs of GPS '
+                                                      'in order to extract the best configuration that '
+                                                      'has been evaluated on the largest number of '
+                                                      'instances. These are the parameters that control '
+                                                      'the behaviour of this procedure. If you '
+                                                      'perform multiple independent runs of GPS, but can '
+                                                      'not afford the time required to validate all of '
+                                                      'final incumbents, you may find this feature '
+                                                      'helpful. However, preliminary data suggests that '
+                                                      'using this procedure to post-process the output of '
+                                                      'a single GPS run harms the quality of the final '
+                                                      'configurations. Further study of this method is '
+                                                      'still required.'}
         # Location of the GPS source code directory
         gps_directory = os.path.dirname(os.path.realpath(inspect.getfile(inspect.currentframe())))
         # File with hard-coded default values for all (optional) GPS parameters
@@ -361,6 +399,7 @@ class ArgumentParser:
             A list of all non-comment lines in the scenario file that were
             skipped.
         """
+        skipped_lines = []
         # First parse the command line arguments
         arguments = self.parse_command_line_arguments()
         # If a scenario file was provided, parse the arguments from it
@@ -436,6 +475,9 @@ class ArgumentParser:
                         continue
                     f_out.write('{} = {}\n'.format(name, arguments[name]))
             f_out.write('\n')
+
+               
+                      
                     
 def _get_name(names):
     name = names[0] if isinstance(names, tuple) else names
@@ -517,7 +559,65 @@ def _get_aliases(names):
     for name in names:
         aliases.append(name)
         if name[:2] == '--':
-            aliases.append('--{}'.format(name[2:].replace('-', '_')))
-            aliases.append('--{}{}'.format(name[2:].split('-')[0],
-                                           ''.join([token.capitalize() for token in name[2:].split('-')[1:]])))
-    return tuple(list(set(aliases)))
+            alias = '--{}'.format(name[2:].replace('-', '_'))
+            if alias not in aliases:
+                aliases.append(alias)
+            alias = '--{}{}'.format(name[2:].split('-')[0],
+                                    ''.join([token.capitalize() for token in name[2:].split('-')[1:]]))
+            if alias not in aliases:
+                aliases.append(alias)
+    return tuple(aliases)
+
+def _print_argument_documentation():
+    """_print_argument_documentation
+
+    Prints out documentation on each of the parameters formated
+    to be included in the github readme file, including markdown.
+    """
+    def _table_row(header, content):
+        return '<tr>{}{}</tr>'.format(_table_column(_bold(header)),
+                                      _table_column(content))
+    def _table_column(content):
+        return '<td>{}</td>'.format(content)
+    def _bold(header):
+        return '<b>{}</b>'.format(header)
+    def _list_of_code(aliases):
+        return ', '.join([_code(alias.strip()) for alias in aliases])
+    def _code(code):
+        return '<code>{}</code>'.format(code)
+    def _table(description, required, default, aliases):
+        return  ('<table>\n{}\n{}\n{}\n</table>\n'
+                 ''.format(_table_row('Description', _abreviations_to_italics(description)),
+                           _table_row('Required' if required else 'Default',
+                                      'Yes' if required else default),
+                           _table_row('Aliases', _list_of_code(aliases))))
+    def _abreviations_to_italics(content):
+        abreviations = ['e.g.', 'i.e.', 'etc.', 'vs.']
+        for token in abreviations:
+            content = content.replace(token, '<i>{}</i>'.format(token))
+        return content
+
+    argument_parser = ArgumentParser()
+    defaults, _ = argument_parser.parse_file_arguments(argument_parser.defaults, {})
+    for group in argument_parser.groups_in_order:
+        print('## {}\n'.format(group))
+        print('{}\n'.format(_abreviations_to_italics(argument_parser.group_help[group])))
+        arguments = sorted(list(argument_parser.argument_groups[group].keys()))
+        for arg in arguments:
+            name = _get_name(arg)
+            print('### {}\n'.format(name))
+            description = argument_parser.argument_groups[group][arg]['help']
+            required = name not in defaults
+            default = None if required else defaults[name]
+            # Handle the one exception to the rule.
+            if name == 'scenario_file':
+                required = False
+                default = None
+            # Convert directories to code
+            if '_dir' in name:
+                default = _code(default)
+            aliases = _get_aliases(arg)
+            print(_table(description, required, default, aliases))
+           
+if __name__ == '__main__':
+    _print_argument_documentation() 

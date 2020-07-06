@@ -6,7 +6,7 @@
 #for GPS
 
 import copy as cp
-import pcsParser
+from PCS import pcsParser
 
 
 def reparameterizePCS(pcsFile):
