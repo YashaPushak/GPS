@@ -1,3 +1,4 @@
 PCS==0.1
 redis==2.10.6
 numpy==1.11.3
+pandas==0.19.2

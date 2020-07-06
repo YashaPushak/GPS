@@ -118,9 +118,10 @@ except:
     misc = 'The artificial algorithm crashed for an unknown reason'
 
     
-print('Result for GPS: {result}, {runtime}, {misc}'
+print('Result for GPS: {result}, {runtime}, {solution_quality}, {misc}'
       ''.format(result=result,
                 runtime=runtime,
+                solution_quality=0, # Not needed here, and not yet supported by GPS
                 misc=misc))
 
 
