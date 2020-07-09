@@ -445,7 +445,36 @@ following syntax:
 
 GPS does not support other operators, for example `in` or `>`. If you need to 
 support this behaviour, you must create one child parameter for each value of
-the parameter parameter that should enable the child (see example below). 
+the parameter parameter that should enable the child (see example below).
+
+Note that GPS can have any number of children for a single parent parameter;
+however, GPS can only have a child parameter can only be defined for a single
+value of its parent parameter. This does not limit the number of parents
+or ancestors that a child can have -- however; each such parent or ancestor
+must enable the child for only a single value. This means that if you have
+the following:
+
+    param1 | param2 in {a, b}
+    param1 | param3 in {a, b}
+
+you will need to encode this as, for example:
+
+    param1_2a_3a | param2 == a
+    param1_2a_3a | param3 == a
+
+    param1_2b_3a | param2 == b
+    param1_2b_3a | param3 == a
+
+    param1_2a_3b | param2 == a
+    param1_2a_3b | param3 == b
+
+    param1_2b_3b | param2 == b
+    param1_2b_3b | param3 == b
+
+You should then modify your target algorithm wrapper to include 
+`param1_2a_3a`, `param1_2b_3a`, `param1_2a_3b` and `param1_2b_3b` as aliases
+for `param1`. (Note that only one of these four aliases will ever be passed
+to your target algorithm at once time).
 
 ## Example Configuration Space
 
