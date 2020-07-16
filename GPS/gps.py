@@ -277,7 +277,7 @@ def gps(arguments, gpsID):
 
                 redisHelper.initializeBracket(gpsID,p,[a[p],b[p],c[p],d[p]],['a','b','c','d'],paramType[p],alg[p],R)
                    
-                    redisHelper.saveIncumbent(gpsID,p,p0[p],0,defaultScore,R)
+                redisHelper.saveIncumbent(gpsID,p,p0[p],0,defaultScore,R)
 
             else:
                 redisHelper.initializeBracket(gpsID,p,prange[p],prange[p],paramType[p],alg[p],R)
@@ -1581,6 +1581,7 @@ def readOutputFile(outputFile):
 
     # Specify inf in case of error or timeout
     runtime = float('inf')
+    sol = float('inf')
     res = "CRASHED"
     misc = 'The target algorithm failed to produce output in the expected format'
     if not helper.isFile(outputFile):

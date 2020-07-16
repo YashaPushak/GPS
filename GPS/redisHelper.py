@@ -16,6 +16,10 @@ from redis import WatchError
 
 import gpsHelper
 
+# Define a variable named inf which is infinity, so that when eval is 
+# called, if there are any inf values, they get evaluated to infinity! :)
+inf = float('inf')
+
 def connect(host='ada-udc.cs.ubc.ca',port=9503,dbid=0):
 
     return redis.StrictRedis(host=host,port=port,db=dbid)
@@ -512,11 +516,10 @@ def getRuns(gpsID,p,ptns,R):
                 #and we can try again. 
                 R.incr('getRunsRollBack')
                 continue
-
+    
     runs = {}
     for ptn in ptns:
         runs[ptn] = {}
-
         for key in tmpRuns[ptn].keys():
             #print('8'*8)
             #print(key)
