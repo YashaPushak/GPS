@@ -1292,14 +1292,14 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
                 endTime = time.time()
                 logger.debug("Done running the task.")
-                logger.debug('Result: {}, {}, {}'.format(res,runtime,misc))
+                logger.debug('Result: {}, {}, {}, {}'.format(res,runtime,sol,misc))
 
                 run_logger.info('{instance},{seed},{result},{runtime},{quality},{parameter_string}'
                                 ''.format(instance=task['inst'],
                                           seed=task['seed'],
                                           result=res,
                                           runtime=runtime,
-                                          quality=-1,
+                                          quality=sol,
                                           parameter_string=getParamString(task['alg']['params'])))
                 #runTrace.append((startTime,endTime,task,res,runtime,misc))
 
@@ -1395,7 +1395,7 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
         res = 'ADAPTIVE-CAP-TIMEOUT'
         runtime = cutoff*10
         timeSpent = 0
-        sol = 0
+        sol = float('inf')
         misc = capType + ': ' + str(cutoffi) + ' CPU Seconds'
         return res, runtime, sol, misc, timeSpent, capType, cutoffi, ''
 
@@ -1417,7 +1417,7 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
             res = 'BUDGET-TIMEOUT'
             runtime = cutoff*10
             timeSpent = 0
-            sol = 0
+            sol = float('inf')
             misc = capType + ': ' + str(cutoffi) + ' CPU Seconds'
 
             return res, runtime, sol, misc, timeSpent, capType, cutoffi, ''
@@ -1465,6 +1465,7 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
         else:
             timeSpent = cutoffi
         runtime = cutoff*10
+        sol = float('inf')
     
     misc += ' - ' + capType + ': ' + str(cutoffi) + ' CPU Seconds'
 
