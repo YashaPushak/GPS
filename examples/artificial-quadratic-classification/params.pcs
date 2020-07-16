@@ -1,0 +1,5 @@
+# The probability of making an error on a particular instance given x0 and x1
+# is: ((x0 + x1 - 10)**2 + (x0 - 5)**2 + (x1 - 5)**2)/300
+x0 real [0, 10] [0]
+x1 real [0, 10] [0]
+

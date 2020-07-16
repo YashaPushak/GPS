@@ -48,62 +48,64 @@ try:
     seed = args['seed']
     x0 = args['x0']
     x1 = args['x1']
-    heuristic = args['heuristic']
+
     
-    # Let's assume that the difficulty of our instances are distributed 
-    # according to a truncated normal distribution with a mean of pi and
-    # a standard deviation of 0.1. Of course, in practice whether or not
-    # this is a realistic assumption depends strongly on the homogeneity of
-    # your instance set. If the instances are very different, this distribution
-    # may not even be uni-modal.
-    np.random.seed(instance_seed)
-    instance_difficulty = np.random.normal(np.pi, 0.1)
+    # Let's assume that we're optimizing two parameters of a machine learning
+    # classifier for binomial classification. Let's further assume that the
+    # errors are binomially distributed (this is a simplification of reality,
+    # see Emil and Tamer, 2013 "Some statistical aspects of binary measuring
+    # systems"). We will therefore sample from a binomial distribution with
+    # a probability, p, of making errors. We will then choose p as a function
+    # of x0 and x1. A single call to our machine learning algoirthm given a
+    # particular "cross validation fold" (instance number) will correspond to
+    # a single random sample from this binomial distribution with, say 100
+    # instances and we will then count the number of times that the model made
+    # an error.
+
+    # Let the probability of a failure correspond to a quadratic function that
+    # is minimized by (5, 5). We'll make this function so that the features do
+    # interact -- that is, the quadratic function will be squished upwards 
+    # along the axis x0 = 10 - x1.
+    def p_failure(x0, x1):
+        def _p(x0, x1):
+            return (x0 + x1 - 10)**2 + (x0 - 5)**2 + (x1 - 5)**2
+        # x0 and x1 should be in the range [0, 10], so we normalize the
+        # function by the worse solution quality obtained at (0,0) or (10, 10)
+        # and then we divide by 2 because we assume that any good ML system
+        # should do no worse than random guessing.
+        return _p(x0, x1)/_p(0, 0)/2
+    # Calculate the probability of an error given these parameter settings
+    deterministic_p = p_failure(x0, x1)
+
+    # Let us further assume that there is a small amount of noise due to the
+    # particular fold used for training, which we will model using a truncated
+    # normal distribution. We add x0 and x1 to the instance seed because we 
+    # expect that changing the parameter value by a tiny amount to have an 
+    # equivalent effect as if we had changed the random seed.
+    np.random.seed(instance_seed + x0 + x1 + 12345)
+    fold_p = np.random.normal(deterministic_p, 0.01)
+    # Keep p in [0, 1]
+    fold_p = min(max(fold_p, 0), 1)
     
-    # Let's also assume that the algorithm also has an exponential running
-    # time distribution on this particular instance, such that the mean of
-    # its running time distribution on this instance is equal to the 
-    # difficulty that we just drew
-    np.random.seed(seed)
-    run_cost = np.random.exponential(instance_difficulty)
+    # The number of test instances
+    n = 1000
+
+    # Finally, sample from the binomial distribution
+    np.random.seed(seed + x0 + x1 + 54321)
+    n_errors = 1.0*np.random.binomial(n, fold_p)/n
     
-    # Next, let's create the response of each parameter. For this algorithm, we will assume
-    # that the impact of the parameters is multiplicative on the running time.
-    
-    # Let's have the first parameter be quadratic with a minimum value at 5
-    if x0 < 0 or x0 > 20:
-        # if x0 is out of bounds let's raise a value error
-        raise ValueError('x0 must be in [0, 20]. Provided {}.'.format(x0))
-    p1 = (x0 - 5)**2 + 1
-    
-    # We'll make the second parameter lop-sided, with a minimum value at 1
-    if x1 < 0 or x1 > 20:
-        raise ValueError('x1 must be in [0, 20]. Provided {}.'.format(x1))
-    p2 = 1/x1 + x1 - 1
-    
-    # The third parameter can be a, b or c and will
-    if heuristic == 'a':
-        p3 = 1
-    elif heuristic == 'b':
-        p3 = 20
-    elif heuristic == 'c':
-        p3 = 3
-    else:
-        raise ValueError('heuristic must be in [a, b, c]. Provided {}.'.format(heuristic))
-    
-    # Add in the various penalties of having the parameters wrong. Note that the minimum
-    # value of each parameter's response is 1, so the optimal configuration (5, 1, 'a')
-    # have an expected running time of pi.
-    runtime = run_cost*p1*p2*p3
-    deterministic_runtime = np.pi*p1*p2*p3
+    # Let's just make the simple assumption that these running times are normally
+    # distributed.    
+    runtime = max(np.random.normal(5, 1), 0.1)
     
     result = 'SUCCESS'
     if runtime > cutoff:
         runtime = cutoff
         result = 'TIMEOUT'
 
-    misc = ('Miscellaneous extra data fro the run (ignored by GPS) '
-            '- deterministic running time {0:.4f} - factor worse than optimal '
-            '{1:.10f}'.format(deterministic_runtime, deterministic_runtime/np.pi))
+    misc = ('Miscellaneous extra data from the run (ignored by GPS) '
+            '- deterministic probability of errors {0:.6f}'
+            ''.format(deterministic_p))
 
 except Exception as e:
     result = 'CRASHED'
@@ -121,7 +123,7 @@ except:
 print('Result for GPS: {result}, {runtime}, {solution_quality}, {misc}'
       ''.format(result=result,
                 runtime=runtime,
-                solution_quality=0, # Not needed here, and not yet supported by GPS
+                solution_quality=n_errors,
                 misc=misc))
 
 

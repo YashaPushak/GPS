@@ -1,6 +1,0 @@
-# The multiplicative effect of x0 is: (x0 - 5)**2 + 1 (the argmin is 5)
-x0 integer [0, 20] [2]
-# The multiplicative effect of x1 is: 1/x1 + x1 - 1 (the argmin is 1)
-x1 real [0, 20] [3]
-# The multiplicative effect of heuristic is: a=1, b=20, c=3 (the argmin is a)
-heuristic categorical {a, b, c} [c]
