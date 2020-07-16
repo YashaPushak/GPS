@@ -27,7 +27,7 @@ try:
     parser.add_argument('seed',
                         help='The random seed to be used by your target algorithm for this run.',
                         type=int)
-    parser.add_argument('--x0', type=int)
+    parser.add_argument('--x0', type=float)
     parser.add_argument('--x1', type=float)
     parser.add_argument('--heuristic', type=str)
     
