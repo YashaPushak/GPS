@@ -1,4 +1,3 @@
 - Copy the instance file and pcs file to the output location
-- Improve the documentation for the installation instructions.
 - Add support for solution quality optimization
 - Convert to python3
