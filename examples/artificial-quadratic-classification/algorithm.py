@@ -104,6 +104,17 @@ try:
     if runtime > cutoff:
         runtime = cutoff
         result = 'TIMEOUT'
+        # It's up to you to return an appropriate status message if your 
+        # algorithm terminates due to a running time cutoff. If you have
+        # an anytime optimization algorithm, you should just return
+        # "SUCCESS" and the final solution quality found. However, if
+        # you were unable to find any solution to your problem within
+        # the cutoff, then returning 'TIMEOUT' is appropriate.
+        # We're going to assume this is the case here.
+        n_errors = 1
+        # Note that GPS will still use this objective function value
+        # rather than treating this similarly to if it were a crashed
+        # run like it would if we were optimizing for running times.
 
     misc = ('Miscellaneous extra data from the run (ignored by GPS) '
             '- deterministic probability of errors {0:.6f}'
