@@ -590,6 +590,7 @@ in the scenario file.
       * [cputime_limit](#cputime_limit)
       * [instance_file](#instance_file)
       * [pcs_file](#pcs_file)
+      * [run_obj](#run_obj)
       * [runcount_limit](#runcount_limit)
       * [seed](#seed)
       * [wallclock_limit](#wallclock_limit)
@@ -608,7 +609,6 @@ in the scenario file.
       * [post_process_min_runs](#post_process_min_runs)
       * [post_process_multiple_test_correction](#post_process_multiple_test_correction)
       * [post_process_n_permutations](#post_process_n_permutations)
- 
 
 ## Setup Arguments
 
@@ -724,6 +724,14 @@ These arguments define the scenario-specific information.
 <tr><td><b>Description</b></td><td>The file that contains the algorithm parameter configuration space in PCS format. GPS supports a subset of the syntax used for SMAC and ParamILS.</td></tr>
 <tr><td><b>Required</b></td><td>Yes</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--pcs-file</code>, <code>--pcs_file</code>, <code>--pcsFile</code>, <code>--param-file</code>, <code>--param_file</code>, <code>--paramFile</code>, <code>--p</code></td></tr>
+</table>
+
+### run_obj
+
+<table>
+<tr><td><b>Description</b></td><td>This is the objective that GPS is attempting to minimize. Can be 'RUNTIME' or 'QUALITY' to minimize the target algorithm's running time or solution quality, respectively. If 'RUNTIME', GPS will minimize the PAR10 of the running times.</td></tr>
+<tr><td><b>Default</b></td><td>RUNTIME</td></tr>
+<tr><td><b>Aliases</b></td><td><code>--run-obj</code>, <code>--run_obj</code>, <code>--runObj</code>, <code>--run-objective</code>, <code>--run_objective</code>, <code>--runObjective</code></td></tr>
 </table>
 
 ### runcount_limit
@@ -861,7 +869,6 @@ GPS comes with a currently-undocumented post-processing procedure that can be us
 <tr><td><b>Default</b></td><td>10000</td></tr>
 <tr><td><b>Aliases</b></td><td><code>--post-process-n-permutations</code>, <code>--post_process_n_permutations</code>, <code>--postProcessNPermutations</code>, <code>--post-process-number-of-permutations</code>, <code>--post_process_number_of_permutations</code>, <code>--postProcessNumberOfPermutations</code></td></tr>
 </table>
-
 
 
 # Contact
