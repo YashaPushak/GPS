@@ -1,9 +1,11 @@
 import sys
 import argparse
+import traceback 
 
 import numpy as np
 
 runtime = 0
+n_errors = 1
 try:
     parser = argparse.ArgumentParser()
     
@@ -82,7 +84,7 @@ try:
     # normal distribution. We add x0 and x1 to the instance seed because we 
     # expect that changing the parameter value by a tiny amount to have an 
     # equivalent effect as if we had changed the random seed.
-    np.random.seed(instance_seed + x0 + x1 + 12345)
+    np.random.seed((instance_seed + hash(x0) + hash(x1) + 12345) % 4294967294)
     fold_p = np.random.normal(deterministic_p, 0.01)
     # Keep p in [0, 1]
     fold_p = min(max(fold_p, 0), 1)
@@ -91,7 +93,7 @@ try:
     n = 1000
 
     # Finally, sample from the binomial distribution
-    np.random.seed(seed + x0 + x1 + 54321)
+    np.random.seed((seed + hash(x0) + hash(x1) + 54321) % 4294967294)
     n_errors = 1.0*np.random.binomial(n, fold_p)/n
     
     # Let's just make the simple assumption that these running times are normally
@@ -113,6 +115,7 @@ except Exception as e:
     # SMAC and ParamILS don't support commas
     # in the miscellaneous data, so GPS doesn't either.
     misc = e.message.replace(',', ' -')
+    traceback.print_exc()
 except:
     # There are a few cases where exceptions can be raised that
     # won't be caught by the above
