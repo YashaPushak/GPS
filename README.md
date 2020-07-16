@@ -41,7 +41,7 @@ Solving from Nature (PPSN 2018)*. pp 271-283 (2018).
    * [Golden Parameter Search (GPS)](#golden-parameter-search-gps)
    * [Table of Contents](#table-of-contents)
    * [Installing GPS](#installing-gps)
-   * [Setting up a Redis Database](#setting-up-a-redis-database)
+      * [Setting up a Redis Database](#setting-up-a-redis-database)
    * [Quick Start Guide](#quick-start-guide)
       * [Required Input](#required-input)
       * [Example command line call for GPS](#example-command-line-call-for-gps)
@@ -84,7 +84,7 @@ or
 `python setup.py install --user`
  7. Setup and install a [redis database](#setting-up-a-redis-database). 
 
-# Setting up a Redis Database
+## Setting up a Redis Database
 
 These instructions help you to setup a simple local database.
 You can find more information on redis on their official website: [redis.io](https://redis.io).
@@ -92,7 +92,7 @@ The configuration file provided is only a light modification of [the one provide
 
 You first need to install redis. It is available on most systems, as well as on Anaconda using:
 
-   conda install redis 
+    conda install redis 
 
 To start local a server, use the following command:
 

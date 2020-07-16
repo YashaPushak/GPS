@@ -6,7 +6,7 @@ The configuration file provided is only a light modification of [the one provide
 
 You first need to install redis. It is available on most systems, as well as on Anaconda using:
 
-   conda install redis 
+    conda install redis 
 
 To start local a server, use the following command:
 
