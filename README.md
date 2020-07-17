@@ -337,11 +337,11 @@ Performance of Algorithm Configurators for Search Heuristics with Global
 Mutation Operators").
 
 An example artificial scenario showing how to use GPS for solution quality
-optimization can be found in `./examples/artificial-quadratic-classifier`,
+optimization can be found in `./examples/artificial-classifier`,
 which is designed to approximately resemble the behaviour of a machine learning
 binary classification scenario. This scenario can be run with:
 
-    python run_gps_master.py --experiment-dir examples/artificial-quadractic-classifier --scenario-file scenario.txt --dbid 0
+    python run_gps_master.py --experiment-dir examples/artificial-classifier --scenario-file scenario.txt --dbid 0
 
 and
 
