@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file.
  - GPS now supports solution quality optimization! See `examples/artificial-quadratic-classifier` for an example on how to use it. More information is available in `README.md`.
  - GPS now has a changelog.
 
-## [1.0.1] - 2017-07-16
+## [1.0.1] - 2020-07-16
 
 ### Added
  - New instructions for setting up a redis database installation, provided by Marie Anastacio.
