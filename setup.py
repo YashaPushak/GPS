@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='GPS',
-      version='1.0.1',
+      version='1.1.0',
       description='Golden Parameter Search',
       url='https://github.com/YashaPushak/GPS',
       author='Yasha Pushak',
