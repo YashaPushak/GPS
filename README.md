@@ -3,10 +3,11 @@
 Golden Parameter Search (GPS) [Pushak & Hoos, 2020] is an automated 
 algorithm congifuration procedure. That is, it seeks to optimize the 
 performance of a target algorithm on a set of instances by automatically 
-finding high-quality values for the parameters of the target algorithm. 
-Currently, GPS only supports optimization of the running time of target 
-algorithms. Solution quality optimization will be available soon.
-
+finding high-quality values for the parameters of the target algorithm. GPS 
+can optimze the performance of an algorithm in terms of either the running
+time required to solve problem instances or the solution quality found by
+the target algorithm for the problem instances.
+ 
 GPS is the first automated algorithm configuration procedure to exploit
 recent insights into the structural properties of algorithm configuration
 landscapes [Pushak & Hoos, 2018]. In particular, GPS assumes that each
@@ -47,6 +48,7 @@ Solving from Nature (PPSN 2018)*. pp 271-283 (2018).
       * [Experiment Directory](#experiment-directory)
       * [Using a Scenario file](#using-a-scenario-file)
       * [Temporary File Directory - <strong>Important</strong>](#temporary-file-directory---important)
+      * [Solution Quality Optimization](#solution-quality-optimization)
    * [Target Algorithm Wrapper](#target-algorithm-wrapper)
       * [Target Algorithm Wrapper Input](#target-algorithm-wrapper-input)
       * [Target Algorithm Wrapper Output](#target-algorithm-wrapper-output)
@@ -318,6 +320,41 @@ GPS does not share temporary files between
 processes. So if worker processes are operating on separate nodes of a 
 cluster, it is unproblematic for each worker to have access to separate
 temporary file directories. 
+
+## Solution Quality Optimization
+
+In addition to minimizing the running times of a target algorithm, GPS can be
+used to minimize the solution qualities found by the target algorithm, if 
+applicable. For example, used this way GPS can optimize the validation error
+of machine learning models through hyper-parameter optimization, or GPS can
+be applied to optimize the performance of optimization algorithms, allowing
+them to find better solutions within a fixed computational budget. Recent
+evidence suggests that for scenarios where both metrics are available, 
+optimizing for solution quality should provide configurators with a more
+informative objective function, allowing them to find higher-quality
+parameter configurations (see, *e.g.*, Hall *et al.*, 2020, "Analysis of the 
+Performance of Algorithm Configurators for Search Heuristics with Global 
+Mutation Operators").
+
+An example artificial scenario showing how to use GPS for solution quality
+optimization can be found in `./examples/artificial-quadratic-classifier`,
+which is designed to approximately resemble the behaviour of a machine learning
+binary classification scenario. This scenario can be run with:
+
+    python run_gps_master.py --experiment-dir examples/artificial-quadractic-classifier --scenario-file scenario.txt --dbid 0
+
+and
+
+    python run_gps_worker.py --dbid 0
+
+Apart from providing GPS with the solution quality to optimize, it 
+is required to specify in the scenario file that the `run_obj` is `QUALITY`
+instead of the default `RUNTIME`. When optimizing solution quality, GPS 
+will minimize the mean solution quality.
+
+Note that it does not make sense to use adaptive capping when performing
+solution quality optimization. Therefore, adaptive capping will be disabled
+and any values passed to the `bound_multiplier` parameter will be ignored. 
 
 
 # Target Algorithm Wrapper
