@@ -13,7 +13,7 @@ R = redisHelper.connect(host=arguments['redis_host'],
                         dbid=arguments['redis_dbid'])
  
 print("Waiting until there is a GPS run to perform...")
-#Get the gpsID that this slave is supposed to run
+#Get the gpsID that this subordinate is supposed to run
 gpsID = None
 print('Waiting for a GPS ID...')
 while gpsID is None:
@@ -53,7 +53,7 @@ with helper.cd(arguments['experiment_dir']):
 
     if(not cancel):
         logger.info("GPS worker process is starting.")
-        gps.gpsSlave(arguments, gps_worker_id, gpsID)
+        gps.gpsSubordinate(arguments, gps_worker_id, gpsID)
     else:
         logger.info("Recieved signal to cancel.")
 

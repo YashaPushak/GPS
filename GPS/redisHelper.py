@@ -1,7 +1,7 @@
 #Auhtor: YP
 #Created: 2018-07-08
 #Last updated: 2019-03-06
-#A set of helper functions used by GPS that act as an interface between the redis database and the master and work processes of GPS.
+#A set of helper functions used by GPS that act as an interface between the redis database and the main and work processes of GPS.
 #The "cat format" is an update introcued on 2019-03-06. The format refers to taking in arrays of pts (the parameter point values) and 
 #ptns (the parameter value names). For caterogircal parameters, these are identical. For numerical parameters, the point names refer
 #to the bracket labels a,b,c or d, and the parameter point values refer to the numerical value of the corresponding bracket point. 

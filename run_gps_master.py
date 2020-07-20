@@ -71,11 +71,11 @@ with helper.cd(arguments['experiment_dir']):
 
     R.set('scenarioFile:' + str(gpsID), scenario_file)
     R.set('readyCount:' + str(gpsID), 0)
-    # Signal to the workers that the master is ready.
+    # Signal to the workers that the main is ready.
     R.set('gpsID', gpsID)
       
     try: 
-        #Wait until all of the slaves are ready
+        #Wait until all of the subordinates are ready
         ready = False
         logger.info('Waiting until all workers are ready...')    
         oldReadyCount = -1
@@ -93,9 +93,9 @@ with helper.cd(arguments['experiment_dir']):
         logger.info("There are {} out of a minimum of {} workers ready..."
                     "".format(readyCount, arguments['minimum_workers']))     
    
-        logger.info("GPS Master process is starting.") 
+        logger.info("GPS Main process is starting.") 
         pbest, decisionSeq, incumbentTrace, cpuTime, wallTime = gps.gps(arguments, gpsID)
-        end_master_time = time.time()
+        end_main_time = time.time()
         R.set('incumbent:' + str(gpsID),pbest)
     finally:
         R.set('cancel:' + str(gpsID),'True')
@@ -127,7 +127,7 @@ with helper.cd(arguments['experiment_dir']):
             incumbent_logger.info('{cpu_time},{train_perf},{wall_time},{inc_id},{ac_time},{config}'
                                   ''.format(cpu_time=cpuTime,
                                             train_perf=estimated_runtime,
-                                            wall_time=wallTime + time.time() - end_master_time,
+                                            wall_time=wallTime + time.time() - end_main_time,
                                             inc_id=-1,
                                             ac_time=-1,
                                             config=incumbent.replace(' -',',').replace(' ','=')[1:]))

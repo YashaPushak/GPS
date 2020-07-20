@@ -172,22 +172,22 @@ class ArgumentParser:
                         'workers to keep up. The default is 1.',
                 'type': _validate(int, 'The instance increment must be a positive fibonnaci number', lambda x: int(x) > 0)},
             ('--sleep-time',): {
-                'help': 'When the master or worker processes are blocked waiting for new results/tasks to be '
+                'help': 'When the main or worker processes are blocked waiting for new results/tasks to be '
                         'pushed to the database, they will sleep for this amount of time, measured in CPU seconds.'
                         'The default is 0.',
                 'type': _validate(float, 'The sleep time must be a positive, real number', lambda x: float(x) >= 0)},
             ('--minimum-workers', '--min-workers'): {
-                'help': 'GPS must use at least two processes to run: the master process, which loops through '
+                'help': 'GPS must use at least two processes to run: the main process, which loops through '
                         'each parameter checking for updates and queuing runs; and at least one worker process, '
-                        'which perform target algorithm runs. By default, GPS\'s master process will setup the '
+                        'which perform target algorithm runs. By default, GPS\'s main process will setup the '
                         'scenario files and then wait until it has received a notification that at least one '
                         'worker is ready to begin. GPS does not count any time while waiting towards its total '
                         'configuration budget. This parameter controls the minimum number of workers that need '
-                        'to be ready in order for GPS\'s master process to start. Note that it does not place '
+                        'to be ready in order for GPS\'s main process to start. Note that it does not place '
                         'any restriction on the maximum number of workers. If you set this value to 1, you can '
                         'still point an unlimitted number of workers to the same GPS ID and they will run. '
                         'This parameter is only used when starting GPS. If some or all of the workers crash '
-                        'unexpectedly, the master process will continue running until it has exhausted its '
+                        'unexpectedly, the main process will continue running until it has exhausted its '
                         'configuration budget (which may be never if the configuration budget is based on the '
                         'maximum number of target algorithm runs). This must be a non-negative integer. The '
                         'default is 1.',
@@ -262,7 +262,7 @@ class ArgumentParser:
                                               'the GPS run.',
                            'Redis Arguments': 'These arguments are required to configure GPS so that it '
                                               'connect to your redis server installation, which it uses '
-                                              'to communicate between master and worker processes.',
+                                              'to communicate between main and worker processes.',
                            'Scenario Arguments': 'These arguments define the scenario-specific '
                                                  'information.',
                            'GPS Parameters': 'These are the parameters of GPS itself. You can use these '

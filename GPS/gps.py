@@ -92,7 +92,7 @@ def initializeSeed(s):
 def gps(arguments, gpsID):
     """gps
 
-    This is the main function for running the master process of GPS.
+    This is the main function for running the main process of GPS.
     Parameters
     ----------
     arguments : dict
@@ -577,7 +577,7 @@ def gps(arguments, gpsID):
             #runs are collected the above for loop has a continue statement
             #in it to skip performing unneeeded work. However, if this is 
             #true for all of the parameters (say because the budget is exhasted
-            #and so all of the slaves have stopped working), then we will never
+            #and so all of the subordinates have stopped working), then we will never
             #reach the above code to check if the budget has been exhausted,
             #and so we will never terminate. 
             budget = redisHelper.getBudget(gpsID,R)     
@@ -612,7 +612,7 @@ def gps(arguments, gpsID):
         logger.exception("exiting with failure")
         raise
     finally:
-        #Signal the slaves to stop
+        #Signal the subordinates to stop
         redisHelper.setRunID(gpsID,-1,R)
         redisHelper.setCancel(gpsID, R)
 
@@ -1172,16 +1172,16 @@ def updateBudget(gpsID,timeSpent,R):
 
 
 
-def gpsSlave(arguments,gpsSlaveID,gpsID):
+def gpsSubordinate(arguments,gpsSubordinateID,gpsID):
     #Author: YP
     #Created: 2018-07-06
     #Last updated: 2019-06-28
-    #The main function call to initiate a worker slave for GPS.
-    #Slaves continually query the database for new tasks to run,
+    #The main function call to initiate a worker subordinate for GPS.
+    #Subordinates continually query the database for new tasks to run,
     #i.e., target algorithm runs, and then report the results back
     #to the database. 
-    #Slaves continue running until the budget (also stored in the 
-    #database, queried and updated by the slaves) is exhausted.
+    #Subordinates continue running until the budget (also stored in the 
+    #database, queried and updated by the subordinates) is exhausted.
 
     lastCPUTime = time.clock()
 
@@ -1222,12 +1222,12 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
     R = redisHelper.connect(host,port,dbid)
     #runTrace = []
-    run_logger = getLogger(logLocation + '/run-trace-{}.csv'.format(gpsSlaveID), 
+    run_logger = getLogger(logLocation + '/run-trace-{}.csv'.format(gpsSubordinateID), 
                            verbose=1, console=False, logger_name='run_logger', format_='')
     run_logger.info('instance,seed,result_status,runtime,solution_quality,parameter_string')
 
 
-    logger = getLogger(logLocation + '/gps-worker-' + str(gpsSlaveID) + '.log',verbose)
+    logger = getLogger(logLocation + '/gps-worker-' + str(gpsSubordinateID) + '.log',verbose)
 
     try:
 
@@ -1236,7 +1236,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
         while(oldRunID is None):
             loopCount += 1
             if(loopCount > loopLimit):
-                 logger.debug('INFINITE LOOP in gpsSlave()?')
+                 logger.debug('INFINITE LOOP in gpsSubordinate()?')
             oldRunID = redisHelper.getRunID(gpsID,R)
 
         task = None
@@ -1245,7 +1245,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
             oldVerbose = verbose
             verbose = redisHelper.getVerbosity(gpsID,R)
             if(not oldVerbose == verbose):
-                logger = getLogger(logLocation + '/gps-worker-' + str(gpsSlaveID) + '.log',verbose)
+                logger = getLogger(logLocation + '/gps-worker-' + str(gpsSubordinateID) + '.log',verbose)
 
             #If there is a task
             if(task is not None):
@@ -1278,7 +1278,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                     #so that we save time by adjusting our cap, and then when we
                     #are done we multiply the penalty factor back in to reflect
                     #the penalized running time. 
-                    res, runtime, sol, misc, timeSpent, capType, cutoffi, cmd = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,temp,logger)
+                    res, runtime, sol, misc, timeSpent, capType, cutoffi, cmd = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSubordinateID,oldRunID,temp,logger)
                     runtime = runtime*regFactor
                     cutoffi = cutoffi*regFactor
 
@@ -1362,7 +1362,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
         logger.info(message)
 
-        #helper.saveObj(logLocation,runTrace,'run-trace-gps-worker-' + str(gpsSlaveID))
+        #helper.saveObj(logLocation,runTrace,'run-trace-gps-worker-' + str(gpsSubordinateID))
     except:
         logger.exception("exiting with failure")
         raise
@@ -1371,7 +1371,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
 
 
-def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logger):
+def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSubordinateID,runID,temp,logger):
     #Author: YP
     #Created: 2018-04-10
     #Last updated: 2019-06-28
@@ -1423,7 +1423,7 @@ def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logge
             return res, runtime, sol, misc, timeSpent, capType, cutoffi, ''
         logger.info("GPS is running out of time; attempting one more target algorithm run using the remaining budget of " + str(cutoffi) + " seconds...")
                     
-    res, runtime, sol, misc, cmd = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSlaveID) + '-' + runID + '-' + p, temp)
+    res, runtime, sol, misc, cmd = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSubordinateID) + '-' + runID + '-' + p, temp)
 
     if(res == 'SUCCESS'):
         if(runtime == float('inf')):
