@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2020-07-xx
+
+### Added
+
+ - GPS now exposes a new python interface for target algorithm runners/wrappers. This allows GPS to directly
+   call target algorithm runs without using command line calls and reading from output files written to the 
+   disk. The new interface also supports pre-initialization of datasets/instances, avoiding the need to load
+   large amounts of identical instance data prior to performing every single target algorithm run.
+
+### Changed
+ - GPS uses a new permutation test implmentation that is ~10x faster.
+
 ## [1.1.1] - 2020-08-05
 
 ### Fixed
