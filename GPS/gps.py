@@ -1,37 +1,28 @@
-#Author: YP
-#Created: 2018-04?
-#Last updated: 2018-11-06
-
-#This current gpsID is 979, so IDs 980 and greater are part of the current set of configuration experiments.
-
-#TODO: Figure out why a bunch of the parameters seem to not have their default values successfully finish running.
-
-
-import helper
-from PCS import pcsParser
-import pcsHelper
-import dictDiffer
-
 import math
 import copy as cp
-import time 
-import numpy as np 
+import time  
 import random
 import os
 import sys
 import glob
 import logging
+import importlib
 
+import numpy as np
 
 import redisHelper
 import gpsHelper
 from gpsHelper import *
+import helper
+from PCS import pcsParser
+import pcsHelper
+import dictDiffer
+import command_runner
 
-#Set some global variables
+# Set some global variables
 gr = (math.sqrt(5) + 1)/2
 seed = random.randrange(0,10000000)
 instSeed = random.randrange(0,10000000)
-
 loopLimit = 10000
           
 
@@ -1199,6 +1190,7 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
     pcsFile = arguments['pcs_file']
     insts = parseInstances(arguments['instance_file'])
     wrapper = arguments['algo']
+    wrapper_type = arguments['algo_type'].lower()
     runObj = arguments['run_obj'].lower()
     cutoff = arguments['algo_cutoff_time']
     runBudget = arguments['runcount_limit']
@@ -1230,6 +1222,18 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
     logger = getLogger(logLocation + '/gps-worker-' + str(gpsSlaveID) + '.log',verbose)
 
     try:
+        # Load the target algorithm runner and create an instance of a runner
+        if wrapper_type == 'python':
+            with helper.cd('/'.join(wrapper.split('/')[:-1])):
+                # Add the current working directory to the path
+                sys.path.append('')
+                module_name = wrapper.split('/')[-1][:-3]
+                target_runner = importlib.import_module(module_name)
+                # Remove the current working directory from the path
+                sys.path = sys.path[:-1]
+        else:
+            target_runner = command_runner
+        target = target_runner.TargetAlgorithmRunner()
 
         oldRunID = None
         loopCount = 0
@@ -1267,8 +1271,11 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                 #logger.debug("The penalty is: " + str(regFactor))
                 #logger.debug("Original cutoff: " + str(task['cutoff']))
                 #logger.debug("New cutoff: " + str(task['cutoff']/regFactor))
-                regFactor = 1 #Note: this is some un-used code for performing regularization for running time objectives only. This will not work for solution quality.
-                #In fact, changing this from any value but 1 (without other changes) will break the code for solution quality optimization. 
+                regFactor = 1 #Note: this is some un-used code for performing 
+                # regularization for running time objectives only. This will 
+                # not work for solution quality.
+                # In fact, changing this from any value but 1 (without other 
+                # changes) will break the code for solution quality optimization. 
 
                 logger.debug("Running the task")
                 startTime = time.time()
@@ -1278,7 +1285,12 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
                     #so that we save time by adjusting our cap, and then when we
                     #are done we multiply the penalty factor back in to reflect
                     #the penalized running time. 
-                    res, runtime, sol, misc, timeSpent, capType, cutoffi, cmd = performRun(task['p'],task['inst'],task['seed'],task['alg'],task['cutoff']/regFactor,cutoff/regFactor,budget,gpsSlaveID,oldRunID,temp,logger)
+                    res, runtime, sol, misc, timeSpent, capType, cutoffi, cmd \
+                        =  performRun(target, task['p'], task['inst'], 
+                                      task['seed'], task['alg'], 
+                                      task['cutoff']/regFactor, 
+                                      cutoff/regFactor, budget, gpsSlaveID, 
+                                      oldRunID, temp, logger)
                     runtime = runtime*regFactor
                     cutoffi = cutoffi*regFactor
 
@@ -1371,104 +1383,99 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
 
 
 
-def performRun(p,inst,seed,alg,cutoffi,cutoff,budget,gpsSlaveID,runID,temp,logger):
-    #Author: YP
-    #Created: 2018-04-10
-    #Last updated: 2019-06-28
-    #This function has been substantially modifed and renamed since it's creation, where it originally
-    #was used to perform a batch of runs, it is now used to perform only a single run.
-
+def performRun(target, p, inst, seed, alg, cutoffi, cutoff, budget, gpsSlaveID,
+               runID, temp, logger):
+    # Author: YP
+    # Created: 2018-04-10
+    # Last updated: 2020-07-22
     params = alg['params']
-
     cpuTime = 0
-
     capType = 'Regular Cap'
+    runtime = cutoff*10
+    timeSpent = 0
+    sol = float('inf')
+    cmd = ''
 
     if(cutoffi < cutoff):
         capType = 'Adaptive Cap'
 
-    #If the cutoff is 0, then there is no running time that could solve this instance 
-    #such that the performance of this point will be less than the incumbent's 
-    #multiplied by the bound multiplier.
-    #We therefore do not bother running this instance.
+    # If the cutoff is 0, then there is no running time that could solve this instance 
+    # We therefore do not bother running this instance.
     if(cutoffi == 0):
         res = 'ADAPTIVE-CAP-TIMEOUT'
-        runtime = cutoff*10
-        timeSpent = 0
-        sol = float('inf')
         misc = capType + ': ' + str(cutoffi) + ' CPU Seconds'
-        return res, runtime, sol, misc, timeSpent, capType, cutoffi, ''
-
+    # Check if the remaining budget is actually less than the current cutoff
     budgetCensor = False
     if(cutoffi + time.time() - budget['startTime'] > budget['wall']):
-        #The GPS budget does not allow us the full running time cutoff, we can try to complete one more target algorithm run with the remaining budget.
         cutoffi = budget['wall'] - (time.time() - budget['startTime'])
         budgetCensor = True
         capType = 'Budget Cap'
-        #The GPS budget does not allow us the full running time cutoff, we can try to complete one more target algorith run with the remaining budget.
     elif(cutoffi + budget['totalCPUTime'] + cpuTime > budget['cpu']):
         cutoffi = budget['cpu'] - (budget['totalCPUTime'] + cpuTime)
         budgetCensor = True
         capType = 'Budget Cap'
-
+    
     if(budgetCensor):
         if(cutoffi <= 0):
             logger.info("Exceeded budget, finishing up...")
             res = 'BUDGET-TIMEOUT'
-            runtime = cutoff*10
-            timeSpent = 0
-            sol = float('inf')
             misc = capType + ': ' + str(cutoffi) + ' CPU Seconds'
-
-            return res, runtime, sol, misc, timeSpent, capType, cutoffi, ''
-        logger.info("GPS is running out of time; attempting one more target algorithm run using the remaining budget of " + str(cutoffi) + " seconds...")
-                    
-    res, runtime, sol, misc, cmd = runInstance(logger, alg['wrapper'], params, inst, 0, seed, cutoffi, 0, str(gpsSlaveID) + '-' + runID + '-' + p, temp)
-
-    if(res == 'SUCCESS'):
-        if(runtime == float('inf')):
-            raise Exception("We received a running time of 'inf', even though the run was recorded as successful.") 
-
-        if(runtime > cutoffi):
-            #This can happen because the generic wrapper takes the ceiling of the running time cutoff.
-            if(capType == 'Budget Cap'):
-                res = 'BUDGET-TIMEOUT'
-            elif(capType == 'Adaptive Cap'):
+        else:
+            logger.info("GPS is running out of time; attempting one more target "
+                        "algorithm run using the remaining budget of {0:.2f} "
+                        "seconds...".format(cutoffi))
+    # If we _do_ have sufficient remaining budget for a non-capped run, perform
+    # it!
+    if(cutoffi > 0):     
+        res, runtime, sol, misc, cmd = \
+                target._run(alg['wrapper'], params, inst, 0, seed, cutoffi, 0, 
+                            str(gpsSlaveID) + '-' + runID + '-' + p, temp)
+    
+        if(res == 'SUCCESS'):
+            if(runtime == float('inf')):
+                raise Exception("We received a running time of 'inf', even though "
+                                "the run was recorded as successful.")  
+            if(runtime > cutoffi):
+                # This can happen because the generic wrapper takes the ceiling of 
+                # the running time cutoff.
+                if(capType == 'Budget Cap'):
+                    res = 'BUDGET-TIMEOUT'
+                elif(capType == 'Adaptive Cap'):
+                    res = 'ADAPTIVE-CAP-TIMEOUT'
+                else:
+                    res = 'CUTOFF-TIMEOUT'
+                timeSpent = runtime
+                runtime = cutoff*10
+            else:
+                timeSpent = runtime
+        elif(res == 'TIMEOUT' and budgetCensor):
+            res = 'BUDGET-TIMEOUT'
+            if(runtime < float('inf')):
+                # We ran out of time, but the overall GPS budget was what enforced 
+                # a small running time cutoff, so we need to simply discard this run.
+                timeSpent = runtime
+            else:
+                timeSpent = cutoffi
+        elif(res == 'TIMEOUT'):
+            if(capType == 'Adaptive Cap'):
                 res = 'ADAPTIVE-CAP-TIMEOUT'
             else:
-                res = 'CUTOFF-TIMEOUT'
-            timeSpent = runtime
+                res = 'CUTOFF-TIMEOUT'        
+            if(runtime < float('inf')):
+                timeSpent = runtime
+            else:
+                timeSpent = cutoffi
             runtime = cutoff*10
-        else:
-            timeSpent = runtime
-
-    elif(res == 'TIMEOUT' and budgetCensor):
-        res = 'BUDGET-TIMEOUT'
-        if(runtime < float('inf')):
-            #We ran out of time, but the overall GPS budget was what enforced a small running time cutoff, so we need to simply discard this run.
-            timeSpent = runtime
-        else:
-            timeSpent = cutoffi
-    elif(res == 'TIMEOUT'):
-        if(capType == 'Adaptive Cap'):
-            res = 'ADAPTIVE-CAP-TIMEOUT'
-        else:
-            res = 'CUTOFF-TIMEOUT'        
-        if(runtime < float('inf')):
-            timeSpent = runtime
-        else:
-            timeSpent = cutoffi
-        runtime = cutoff*10
-    else: #Treat as crashed
-        if(runtime < float('inf')):
-            timeSpent = runtime
-        else:
-            timeSpent = cutoffi
-        runtime = cutoff*10
-        sol = float('inf')
+        else: #Treat as crashed
+            if(runtime < float('inf')):
+                timeSpent = runtime
+            else:
+                timeSpent = cutoffi
+            runtime = cutoff*10
+            sol = float('inf')
+        
+        misc += ' - ' + capType + ': ' + str(cutoffi) + ' CPU Seconds'
     
-    misc += ' - ' + capType + ': ' + str(cutoffi) + ' CPU Seconds'
-
     return res, runtime, sol, misc, timeSpent, capType, cutoffi, cmd
   
 
@@ -1556,69 +1563,6 @@ def setStartPoints(p0,pmin,pmax):
             d = b - (b-c)/gr
 
     return a, b, c, d
-
-
-
-def runInstance(logger, wrapper, params, inst, inst_spec, seed, cutoff, 
-                runlength, runId='r0', temp = '.'):
-    #Runs the target algorithm on the specified instance.
-    
-    outputFile = temp + '/log-' + runId + '.log'
-
-    paramString = getParamString(params)
-
-    cmd = wrapper + ' ' + str(inst) + ' ' + str(inst_spec) + ' ' + str(cutoff) \
-          + ' ' + str(runlength) + ' ' + str(seed) + ' ' + paramString + ' > ' + outputFile
-    logger.debug(cmd)
-    os.system(cmd)
-
-    return readOutputFile(outputFile) + (cmd,)
-    
-
-def readOutputFile(outputFile):
-    #Author: Yasha Pushak
-    #Created: 2018-04-12
-    #Last updated: 2019-06-25
-
-    # Specify inf in case of error or timeout
-    runtime = float('inf')
-    sol = float('inf')
-    res = "CRASHED"
-    misc = 'The target algorithm failed to produce output in the expected format'
-    if not helper.isFile(outputFile):
-        misc = 'The target algorithm failed to produce any output'
-    else:
-        # Parse the results from the temp file
-        with open(outputFile) as f:
-            for line in f:
-                if("Result for SMAC:" in line 
-                   or "Result for ParamILS:" in line 
-                   or "Result for GPS:" in line
-                   or "Result for Configurator:" in line):
-                    results = line[line.index(":")+1:].split(",")
-                           
-                    runtime = float(results[1])
-                    sol = float(results[2])
-             
-                    if ("SAT" in results[0] 
-                       or "UNSAT" in results[0] 
-                       or "SUCCESS" in results[0]):
-                        res = "SUCCESS"
-                    elif("CRASHED" in results[0]):
-                        res = "CRASHED"
-                    elif("TIMEOUT" in results[0]):
-                        res = "TIMEOUT"
-                        runtime = float('inf')
-                    else:
-                        res = "CRASHED"
-                        logger.debug("Results from a crashed run: " + str(results))
-                    
-                    misc = results[-1].strip() + ' - ' + str(results[0])
-    
-    os.system('rm ' + outputFile + ' -f')
-
-    return res, runtime, sol, misc
-
 
 def getLogger(logLocation,verbose,console=True,
               format_='[%(levelname)s]:%(asctime)s: %(message)s',

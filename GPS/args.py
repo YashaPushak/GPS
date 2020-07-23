@@ -72,7 +72,11 @@ class ArgumentParser:
                         'be used to evaluate the target algorithm\'s configurations.',
                 'type': str},
             ('--algo', '--algo-exec', '--algorithm', '--wrapper'): {
-                'help': 'The command line string used to execute the target algorithm.',
+                'help': 'If algorithm-type is \'COMMAND_LINE\', then this '
+                        'should be the command line string used to execute '
+                        'the target algorithm. Otherwise, this should be the '
+                        'name of the python file that implements the target-'
+                        'algorithm interface.',
                 'type': str},
             ('--algo-cutoff-time', '--target-run-cputime-limit', '--cutoff-time', '--cutoff'): {
                 'help': 'The CPU time limit for an individual target algorithm run, in seconds. If adaptive '
@@ -109,7 +113,15 @@ class ArgumentParser:
                         'solution quality, respectively. If \'RUNTIME\', '
                         'GPS will minimize the PAR10 of the running times.',
                 'type': _validate(str, 'The run objective must be \'RUNTIME\' or \'QUALITY\'', 
-                                  lambda x: x.lower() in ['runtime', 'quality'])}
+                                  lambda x: x.lower() in ['runtime', 'quality'])},
+            ('--algo-type', '--algorithm-type'): {
+                'help': 'GPS can interact with your target algorithm either '
+                        'using ACLib\'s pre-defined command line interface, or '
+                        'more directly by using a python interface. To use the '
+                        'classic command line interface, set to '
+                        ' \'COMMAND_LINE\', otherwise use \'PYTHON\'.',
+                'type': _validate(str, 'The algorithm type must be \'PYTHON\' or \'COMMAND_LINE\'',
+                                  lambda x: x.lower() in ['python', 'command_line'])}
         }
         
         self.gps_parameters = {

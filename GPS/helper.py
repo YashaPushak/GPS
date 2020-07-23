@@ -111,12 +111,15 @@ def deleteFile(file):
 @contextmanager
 def cd(newdir):
     #http://stackoverflow.com/questions/431684/how-do-i-cd-in-python/24176022#24176022
-    prevdir = os.getcwd()
-    os.chdir(os.path.expanduser(newdir))
-    try:
+    if len(newdir) > 0:
+        prevdir = os.getcwd()
+        os.chdir(os.path.expanduser(newdir))
+        try:
+            yield
+        finally:
+            os.chdir(prevdir)
+    else:
         yield
-    finally:
-        os.chdir(prevdir)
 
 
 
