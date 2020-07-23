@@ -72,12 +72,17 @@ class AbstractRunner:
           
     def _get_command(self, wrapper, parameters, instance, instance_specifics, 
                      seed, cutoff, run_length, run_id, temp_dir):
-        return ('{wrapper}.perform_run({parameters}, "{instance}", '
-               '"{instance_specifics}", {seed}, {cutoff}, {run_length}, '
-               '"{run_id}", "{temp_dir}"'
-               ''.format(wrapper='target_runner', parameters=parameters, 
-                         instance=instance,
-                         instance_specifics=instance_specifics,
-                         seed=seed, cutoff=cutoff, run_length=run_length, 
-                         run_id=run_id, temp_dir=temp_dir))
+        return ('target_runner.perform_run(parameters={parameters},\n'
+                '                          instance=\'{instance}\',\n'
+                '                          instance_specifics=\'{instance_specifics}\',\n'
+                '                          seed={seed},\n'
+                '                          cutoff={cutoff},\n'
+                '                          run_length={run_length},\n'
+                '                          run_id=\'{run_id}\',\n'
+                '                          temp_dir=\'{temp_dir}\')'
+                ''.format(parameters=parameters, 
+                          instance=instance,
+                          instance_specifics=instance_specifics,
+                          seed=seed, cutoff=cutoff, run_length=run_length, 
+                          run_id=run_id, temp_dir=temp_dir))
     
