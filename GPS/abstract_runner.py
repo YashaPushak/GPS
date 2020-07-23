@@ -1,13 +1,21 @@
 class AbstractRunner:
     def _run(self, wrapper, parameters, instance, instance_specifics, seed, cutoff,
-            run_length, run_id, temp_dir='.'):
+             run_length, run_id, temp_dir='.'):
         self._wrapper = wrapper
-        result, runtime_observed, error_observed, misc = self.perform_run(
-            parameters, instance, instance_specifics, seed, cutoff, run_length,
-            run_id, temp_dir)
+        result = 'CRASHED'
+        runtime_observed = float('inf')
+        solution_quality = float('inf')
+        misc = 'crashed'
+        try:
+            result, runtime_observed, solution_quality, misc = self.perform_run(
+                parameters=parameters, instance=instance, 
+                instance_specifics=instance_specifics, seed=seed, cutoff=cutoff,
+                run_length=run_length, run_id=run_id, temp_dir=temp_dir)
+        except Error as error_:
+            misc += ' - ' + error_.message 
         command = self._get_command(wrapper, parameters, instance, 
             instance_specifics, seed, cutoff, run_length, run_id, temp_dir)
-        return result, runtime_observed, error_observed, misc, command
+        return result, runtime_observed, solution_quality, misc, command
 
     def perform_run(self, parameters, instance, instance_specifics, seed, 
                     cutoff, run_length, run_id, temp_dir='.'):
@@ -67,7 +75,7 @@ class AbstractRunner:
         return ('{wrapper}.perform_run({parameters}, "{instance}", '
                '"{instance_specifics}", {seed}, {cutoff}, {run_length}, '
                '"{run_id}", "{temp_dir}"'
-               ''.format(wrapper='target_algorithm', parameters=parameters, 
+               ''.format(wrapper='target_runner', parameters=parameters, 
                          instance=instance,
                          instance_specifics=instance_specifics,
                          seed=seed, cutoff=cutoff, run_length=run_length, 
