@@ -11,7 +11,7 @@ class AbstractRunner:
                 parameters=parameters, instance=instance, 
                 instance_specifics=instance_specifics, seed=seed, cutoff=cutoff,
                 run_length=run_length, run_id=run_id, temp_dir=temp_dir)
-        except Error as error_:
+        except Exception as error_:
             misc += ' - ' + error_.message 
         command = self._get_command(wrapper, parameters, instance, 
             instance_specifics, seed, cutoff, run_length, run_id, temp_dir)
