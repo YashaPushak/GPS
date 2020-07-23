@@ -743,17 +743,7 @@ def permutationTest(incData,chaData,changes,alpha,numSamples,decayRate,minInstan
     #Calculate the ratios of each sample
     ratios = incPerfs/chaPerfs
 
-    ratios = sorted(ratios)
-
-    if(observedRatio < ratios[0]):
-        q = 0
-    elif(observedRatio >= ratios[-1]):
-        q = 1
-    else:
-        for i in range(1,numSamples):
-            if(observedRatio >= ratios[i-1] and observedRatio < ratios[i]):
-                q = float(i)/(numSamples*1.0)
-                break
+    q = 1.0*np.sum(observedRatio >= ratios)/len(ratios)
 
     logger.debug('q: ' + str(q))
 
