@@ -704,11 +704,12 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
 
 
 def permutationTest(incData,chaData,changes,alpha,numSamples,decayRate,minInstances,logger):
-    #Author: YP
-    #Created: 2018-04-11
-    #Last updated: 2019-04-24
+    # Author: YP
+    # Created: 2018-04-11
+    # Last updated: 2020-07-23
     if(not len(incData) == len(chaData)):
-        raise ValueError("Permutation test can not be applied -- the lengths of the challenger and incumbent data are not the same.")
+        raise ValueError("Permutation test can not be applied -- the lengths "
+                         "of the challenger and incumbent data are not the same.")
 
     if(len(incData) < minInstances or len(chaData) < minInstances):
         return False
@@ -718,7 +719,9 @@ def permutationTest(incData,chaData,changes,alpha,numSamples,decayRate,minInstan
     incPerf = calPerfDirect(incData,changes,decayRate)
     chaPerf = calPerfDirect(chaData,changes,decayRate)
     if(incPerf == float('inf') or chaPerf == float('inf')):
-        observedRatio = 1 #We don't know anything about one of the two, so we assume they are identical
+        # We don't know anything about one of the two, so we
+        # assume they are identical
+        observedRatio = 1 
     else:
         observedRatio = incPerf/chaPerf
 
@@ -727,47 +730,18 @@ def permutationTest(incData,chaData,changes,alpha,numSamples,decayRate,minInstan
 
     data = np.array([incData,chaData])
     n = len(incData)
-    #Generate the indicies used to select the randomly chosen values for the "incumbent" for each permutated sample
-    sampleInds = [np.random.randint(0,2,n) for i in range(0,numSamples)]
+    # Generate the indicies used to select the randomly chosen values for the 
+    # "incumbent" for each permutated sample
+    sampleInds = np.random.randint(0, 2, (numSamples, n))
     #Extract all the data to form the "incumbent" samples
-    sIncData = [data[inds,range(0,n)] for inds in sampleInds]
-    #Extra all of the data to form the "challenger" samples, note that we us 1+-1*i to flip the indicies (which is
-    #how we swap data points, because 0 -> 1 and 1 -> 0)
-    sChaData = [data[1 + -1*inds,range(0,n)] for inds in sampleInds]
+    sIncData = data[sampleInds,np.arange(n)]
+    #Extra all of the data to form the "challenger" samples
+    sChaData = data[1-sampleInds,np.arange(n)]
     #Calculate the peformances of each sample
     incPerfs = np.apply_along_axis(lambda d: calPerfDirect(d,changes,decayRate),1,sIncData)
     chaPerfs = np.apply_along_axis(lambda d: calPerfDirect(d,changes,decayRate),1,sChaData)
     #Calculate the ratios of each sample
     ratios = incPerfs/chaPerfs
-
-    #OR you can do the same thing the slow (but more readable) way: 
-    #ratios = []
-    #for i in range(0,numSamples):
-    #    cha = []
-    #    inc = []
-    #    for m in range(0,len(incData)):
-    #        if(random.choice([True,False])):
-    #            inc.append(incData[m])
-    #            cha.append(chaData[m])
-    #        else:
-    #            inc.append(chaData[m])
-    #            cha.append(incData[m])
-
-    #    incPerf = calPerfDirect(inc,changes,decayRate)
-    #    chaPerf = calPerfDirect(cha,changes,decayRate)
-    #    if(incPerf == float('inf') or chaPerf == float('inf')):
-    #        rat = 1 #We don't know anything about one of the two, so we assume they are identical.
-    #    elif(incPerf == 0 or chaPerf == 0):
-    #       print("incPerf: " + str(incPerf))
-    #       print("chaPerf: " + str(chaPerf))
-    #       print("inc: " + str(inc))
-    #       print("cha: " + str(cha))
-    #       print("changes: " + str(changes))
-    #       raise ValueError("Either Inc or Cha had a 0 for it's performance value.")
-    #    else:
-    #       rat = incPerf/chaPerf
-
-    #    ratios.append(rat)
 
     ratios = sorted(ratios)
 
@@ -783,7 +757,8 @@ def permutationTest(incData,chaData,changes,alpha,numSamples,decayRate,minInstan
 
     logger.debug('q: ' + str(q))
 
-    logger.debug('Ratio Summary: ' + str([helper.calStatistic(ratios,stat) for stat in ['q10','q25','q50','q75','q90']]))
+    logger.debug('Ratio Summary: ' + str([helper.calStatistic(ratios,stat) 
+                                          for stat in ['q10','q25','q50','q75','q90']]))
 
     #Check for statistical significance.
     return q < alpha
