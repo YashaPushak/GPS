@@ -1,0 +1,10 @@
+pcs-file = params.pcs
+algo = algorithm_runner.py
+algo-type = PYTHON
+algo-cutoff-time = 960
+instances = instances.txt
+run_obj = QUALITY
+# Whichever budget limit is reached first will terminate GPS
+runcount_limit = 1000
+#cputime_limit = 14400
+verbose = 1

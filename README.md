@@ -127,9 +127,11 @@ takes between 60-90 seconds on our machines).
 
 GPS requires several pieces of information about your scenario to run:
  
-**Target Algorithm:** A target algorithm to optimize callable via the command 
-line. This corresponds to the GPS's `algo` argument. For example: 
-`--algo 'python2 examples/artificial-algorithm/algorithm.py'`.
+**Target Algorithm:** A target algorithm to optimize. This corresponds to the
+GPS's `algo` argument. For example: 
+`--algo 'python2 examples/artificial-algorithm/algorithm.py'`. The target
+algorithm can either be callable via the command line, or it can implement
+a simple python interface.
 See [Target Algorithm Wrapper](#target-algorithm-wrapper) for more details.
 
 **Instance File:** A file that specifies the instances on which your your target
@@ -300,7 +302,8 @@ command line > scenario file > redis configuration file > GPS default values.
 ## Temporary File Directory - **Important**
 
 GPS (like other algorithm configurators) creates a large number of temporary 
-files that it uses to interact with your target algorithm wrapper. This can
+files that it uses to interact with your target algorithm wrapper (provided
+you use the command line interface instead of the python interface). This can
 sometimes cause temporary performance degredation for your entire filesystem
 (which in turn, can of course impact the quality of the configurations found
 by GPS). GPS will clean up these files when it is done with them. However, 
@@ -360,19 +363,33 @@ and any values passed to the `bound_multiplier` parameter will be ignored.
 # Target Algorithm Wrapper
 
 When performing automated algorithm configuration, it is typical to use a
-target algorithm wrapper that implements a particular interface between
-the algorithm configurator and the target algorithm. The target algorithm
-wrapper should be callable via a command line with a pre-defined argument
-format, and should output to the console the reuslt from the run, again
-using a predefined syntax for the response. The target algorithm wrapper
-is responsable for calling the target algorithm using the specified
-configuration on the specified instance, measuring the runing time or
-solution quality, and enforcing the running time cutoff. GPS uses the same
-interface as SMAC and ParamILS, which means that you can directly use any
-scenarios set up for use with the generic wrapper for algorithm 
-configuration available from https://github.com/automl/GenericWrapper4AC.
+target algorithm wrapper that implements a particular command line interface
+between the algorithm configurator and the target algorithm. GPS supports both
+the conventional command line interface, as well as a python interface.
+The target algorithm wrapper is responsable for calling the target algorithm 
+using the specified configuration on the specified instance, measuring the
+runing time or solution quality (*e.g.*, validation loss), and enforcing the 
+running time cutoff. 
 
-## Target Algorithm Wrapper Input
+GPS uses the same command line interface as SMAC and 
+ParamILS, which means that you can directly use any scenarios set up for use
+with the generic wrapper for algorithm configuration available from 
+https://github.com/automl/GenericWrapper4AC. However, if your target algorithm
+is implemented in python, then using the python interface will potentially 
+speed up configuration process and improve the quality of the configurations 
+found. This is because the python interface allows you to load and initialize
+data/instances a single time (per worker), and then re-use this data for each
+target algorithm call, whereas due to the nature of command line interfaces
+you must instead re-load the instances from the disk for every target algorithm
+call, which may be costly. The python interface is further advantageous as it
+removes the need for GPS to constantly write to and read from temporary files
+on the disk.
+
+## Command Line Target Algorithm Wrapper Format
+
+The command line interface require input and output in a pre-defined format.
+
+### Target Algorithm Wrapper Input
 
 The format for the wrapper command line calls must conform to the following:
 
@@ -397,7 +414,7 @@ single quotes. If you specify any conditional, parent-child relationships
 between your parameters, GPS will automatically remove any disabled children
 parameters prior to passing the configuration to your wrapper.
 
-## Target Algorithm Wrapper Output
+### Target Algorithm Wrapper Output
 
 The wrapper may output any amount of information to the command line. However,
 each call to the wrapper should produce exactly one line of output in the
@@ -428,6 +445,34 @@ The `miscellaneous_data` field can contain any additional details about the
 target algorithm run that you choose. GPS parses it as a string, but otherwise
 ignores this information. For backwards compatibility with other configurators,
 this field should not contain any commas.
+
+### Python Target Algorithm Wrapper Interface
+
+To use the python interface you will need to create a class called
+`TargetAlgorithmRunner` that inherits from GPS's `AbstractRunner`
+class and implements two functions: `__init__` and `perform_run`.
+
+The `__init__` function should be used to load and initialize any needed 
+instance data. However, you may also choose to do this in a lazy format, by
+only loading and saving instance data when it is first needed by `perform_run`.
+
+The `perform_run` function should accept several key-word arguments defining,
+for example, the configuration to be evaluated, the instance on which the
+configuration will be evaluated, the maximum budget (`cutoff`) to be used by
+the target algorithm for this particular run, *etc.*
+
+We provide an example implementation below
+
+    import pandas as pd
+    from sklearn.ensemble import RandomForestRegressor
+    
+    from GPS.abstract_runner import AbstractRunner
+
+    # Note that the class name must match this exactly!
+    class TargetAlgorithmWrapper(AbstractRunner):
+
+        def __init__(self):
+
 
 # Instance File Format
 
