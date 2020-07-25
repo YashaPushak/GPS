@@ -1,5 +1,4 @@
 import numpy as np
-import random
 import copy as cp
 
 import helper
@@ -439,7 +438,7 @@ def updateIncumbent(p,pts,ptns,runs,pbest,prevIncInsts,prange,decayRate,alpha,mi
     if(not foundInc):
         logger.debug("Filter Round 7: Randomly pick one challenger")
         logger.debug("Starting off with challengers: " + str(curCands))
-        incPtn = random.choice(curCands)
+        incPtn = np.random.choice(curCands)
         foundInc = True
 
     #--------------------------------------------------------------------------------------------

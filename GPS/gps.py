@@ -1,7 +1,6 @@
 import math
 import copy as cp
 import time  
-import random
 import os
 import sys
 import glob
@@ -21,8 +20,6 @@ import command_runner
 
 # Set some global variables
 gr = (math.sqrt(5) + 1)/2
-seed = random.randrange(0,10000000)
-instSeed = random.randrange(0,10000000)
 loopLimit = 10000
           
 
@@ -71,11 +68,9 @@ def initializeSeed(s):
     #Author: YP
     #Created: 2019-03-11
     if(s >= 0):
-        random.seed(s)
         np.random.seed(s+12345)
     else:
-        s = random.randrange(10000000,99999999)
-        random.seed(s)
+        s = np.random.randint(10000,99999)
         np.random.seed(s+12345)
 
     return s 
@@ -198,14 +193,14 @@ def gps(arguments, gpsID):
         #Initialize the random seed being used by GPS.
         s = initializeSeed(s)
        
-        #Run the instances in a random order for now. Though this might benefit from adapting the idea from Style et al.'s ordered racing procedure.
+        # Run the instances in a random order for now. Though this might benefit from adapting the idea from Style et al.'s ordered racing procedure.
         instance_sets = {}
-        random.shuffle(insts)
+        np.random.shuffle(insts)
         logger.debug('Sharing instance order? {}'.format(shareInstanceOrder))
         for p in params:
             instance_sets[p] = cp.deepcopy(insts)
             if not shareInstanceOrder:   
-                random.shuffle(instance_sets[p])
+                np.random.shuffle(instance_sets[p])
         insts = instance_sets
 
         #TODO: Refactor to pull out initialization of data.
@@ -278,7 +273,7 @@ def gps(arguments, gpsID):
             #Perform a small number of initial runs so that we don't immediately make decisions that over-fit to random noise.
             for j in range(0,minInstances):
                 j %= len(insts[p])
-                seed = random.randrange(100000000, 999999999)
+                seed = np.random.randint(100000000, 999999999)
                 instSet[p].append((insts[p][j], seed))
                 if j == 0:
                     #Initially, all of the incumbents have only been run on the first instance    
@@ -335,7 +330,7 @@ def gps(arguments, gpsID):
                 paramPool.remove(selectedParams[0])
             else:
                 #Randomize the order in which we visit each parameter. 
-                random.shuffle(params)
+                np.random.shuffle(params)
                 #We're visiting each parameter once before looping
                 selectedParams = params
             
@@ -494,7 +489,7 @@ def gps(arguments, gpsID):
                         #Add instIncr new instances to the instance set.
                         for k in range(0,instIncr):
                             #instSet[p].append((insts[instanceCounter[p]],100001 + instanceSeedCounter[p]))
-                            instSet[p].append((insts[p][instanceCounter[p]],random.randrange(100000000, 999999999)))
+                            instSet[p].append((insts[p][instanceCounter[p]], np.random.randint(100000000, 999999999)))
                             instanceCounter[p] += 1
                             instanceSeedCounter[p] += 1
                             instanceCounter[p] %= len(insts[p])
@@ -537,7 +532,7 @@ def gps(arguments, gpsID):
                             #instSet[p].append((insts[instanceCounter[p]],100001 + instanceSeedCounter[p]))
                             #logger.debug(instanceCounter)
                             #logger.debug(insts)
-                            instSet[p].append((insts[p][instanceCounter[p]],random.randrange(100000000, 999999999)))
+                            instSet[p].append((insts[p][instanceCounter[p]], np.random.randint(100000000, 999999999)))
                             instanceCounter[p] += 1
                             instanceSeedCounter[p] += 1
                             instanceCounter[p] %= len(insts[p])
@@ -728,7 +723,7 @@ def banditSample(samplePool,numIncUpdates,sigDiffSet,fibSeq,banditQueue,logger):
     #logger.debug("Sample pool: " + str(pool))
 
     #sample a parameter
-    return random.choice(pool)
+    return np.random.choice(pool)
 
 
 def getFib(n,fibSeq):
@@ -1075,7 +1070,7 @@ def queueRuns(runs,pts,ptns,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alph
     queueState = redisHelper.queueState(gpsID,R)
 
     #Randomly permute the list of tasks to queue.
-    random.shuffle(toQueue)
+    np.random.shuffle(toQueue)
               
     if(len(toQueue) > 0): 
         logger.debug("Queueing all " + str(len(toQueue)) + " tasks as a batch.")
@@ -1209,6 +1204,10 @@ def gpsSlave(arguments,gpsSlaveID,gpsID):
     banditQueue = 'incumbent'
     sleepTime = arguments['sleep_time']
     shareInstanceOrder = arguments['share_instance_order']
+
+    # Each worker should have a unique random seed based on
+    # the global GPS random seed and the GPS worker ID.
+    initializeSeed((s + hash(gpsSlaveID)%654321))
 
     params,paramType,p0,prange,pcs = loadPCS(pcsFile)
 
