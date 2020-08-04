@@ -589,6 +589,7 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
 
     logger.debug("~~~Starting permutation test for " + str(parameter) + "~~~")
     logger.debug("Current runs={}".format(runs))
+    logger.debug("cutoff={}".format(cutoff))
 
     eliminated = []
     for j in range(0,len(ptns)):
@@ -601,7 +602,7 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
 
     if(len(eliminated) > 0):
         logger.debug("Points eliminated by a cap: {}".format(eliminated))
-
+ 
     # comp will accept tuples and return -1,0, or 1, depending on whether or 
     # not the tuples contain values that are separable by the permutation test.
     # The syntax is chosen such that "comp[(p0,p1)] <operator> 0" translates 
