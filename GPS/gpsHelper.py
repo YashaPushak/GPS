@@ -581,23 +581,31 @@ def getParamString(params):
 
 
 def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cutoff,multipleTestCorrection,runObj,logger):
-    #Author: YP
-    #Created: 2018-04-11
-    #Last updated: 2020-07-16
-    #Conforms to the cat format. 
-    #Defines the relative ordering between the points by assessing
-    #statistical significance with a permutation test.
+    # Author: YP
+    # Created: 2018-04-11
+    # Last updated: 2020-08-04
+    # Defines the relative ordering between the points by assessing
+    # statistical significance with a permutation test.
 
     logger.debug("~~~Starting permutation test for " + str(parameter) + "~~~")
+    logger.debug("Current runs={}".format(runs))
 
     eliminated = []
     for j in range(0,len(ptns)):
         if(not neverCapped(runs,ptns[j],cutoff)):
-            #This value has exceeded the bound multiplier times the incumbent's performance. So we are not going to perform permutation tests for it, instead we will assume it, and any others like it, are all equally larger than all other points.
+            # This value has exceeded the bound multiplier times the 
+            # incumbent's performance. So we are not going to perform 
+            # permutation tests for it, instead we will assume it, and any 
+            # others like it, are all equally larger than all other points.
             eliminated.append(ptns[j])
 
-    #comp will accept tuples and return -1,0, or 1, depending on whether or not the tuples contain values that are separable by
-    #the permutation test. The syntax is chosen such that "comp[(p0,p1)] <operator> 0" translates naturally to  "p0 <operator> p1"
+    if len(eliminated) > 0):
+        logger.debug("Points eliminated by a cap: {}".format(eliminated))
+
+    # comp will accept tuples and return -1,0, or 1, depending on whether or 
+    # not the tuples contain values that are separable by the permutation test.
+    # The syntax is chosen such that "comp[(p0,p1)] <operator> 0" translates 
+    # naturally to  "p0 <operator> p1"
     comp = {}
 
     perms = []
@@ -608,9 +616,11 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
     toBeCompared = []
 
     for p in perms:
-        #logger.debug("*"*10 + ' ' + p[low] + ' <? ' + p[hi] + ' ' + '*'*60)
-        #Next we check to see if either or both of p0 and p1 have been eliminated because they performed too much worse than the incumbent.
-        #We heuristicaly assume all such points are equally bad, and that they are all worse than any point not eliminated in this way.
+        # logger.debug("*"*10 + ' ' + p[low] + ' <? ' + p[hi] + ' ' + '*'*60)
+        # Next we check to see if either or both of p0 and p1 have been 
+        # eliminated because they performed too much worse than the incumbent.
+        # We heuristicaly assume all such points are equally bad, and that they
+        #  are all worse than any point not eliminated in this way.
         if(p[0] in eliminated and p[1] in eliminated):
             comp[(p[0],p[1])] = 0
             comp[(p[1],p[0])] = 0
@@ -621,15 +631,17 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
             comp[(p[0],p[1])] = -1
             comp[(p[1],p[0])] = 1
         elif(p[0] == p[1]):
-            #everything is equal to itself
+            # everything is equal to itself
             comp[(p[0],p[1])] = 0
         elif(not enoughData(runs,pbest,prange,parameter,p[0],p[1],decayRate,minInstances)):            
-            #We don't have enough data collected to perform a permutation test yet,
-            #so we assume that they are the same.
+            # We don't have enough data collected to perform a permutation test 
+            # yet, so we assume that they are the same.
             comp[(p[0],p[1])] = 0
             comp[(p[1],p[0])] = 0
         else:
-            #Add this pair to a queue to be compared later. (We need to count the number of pairs being compared so that we can correctly do multiple test correction.
+            # Add this pair to a queue to be compared later. (We need to count
+            # the number of pairs being compared so that we can correctly do 
+            # multiple test correction.
             toBeCompared.append(p)
 
     logger.debug("Only these pairs have enough data to be compared with the permutation test: " + str(toBeCompared))
