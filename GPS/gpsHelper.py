@@ -599,7 +599,7 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
             # others like it, are all equally larger than all other points.
             eliminated.append(ptns[j])
 
-    if len(eliminated) > 0):
+    if(len(eliminated) > 0):
         logger.debug("Points eliminated by a cap: {}".format(eliminated))
 
     # comp will accept tuples and return -1,0, or 1, depending on whether or 
