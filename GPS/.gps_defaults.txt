@@ -25,6 +25,7 @@ sleep-time = 0
 minimum-workers = 1
 share-instance-order = False
 post-process-incumbent = False
+parameter-order = BANDIT
 
 # Post-Process Parameters
 # -----------------------

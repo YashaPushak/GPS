@@ -121,7 +121,12 @@ def gps(arguments, gpsID):
     boundMult = arguments['bound_multiplier']
     instIncr = arguments['instance_increment']
     multipleTestCorrection = False
-    banditQueue = 'incumbent'
+    if arguments['parameter_order'].lower() == 'bandit':
+        banditQueue = 'incumbent'
+    elif arguments['parameter_order'].lower() == 'random':
+        banditQueue = 'random'
+    else:
+        banditQueue = 'deterministic'
     sleepTime = arguments['sleep_time']
     shareInstanceOrder = arguments['share_instance_order']
 
@@ -319,19 +324,22 @@ def gps(arguments, gpsID):
 
         while not done:
             if(banditQueue in ['incumbent','differences']):
-                #In case we have run out of options
+                # In case we have run out of options
                 if(len(paramPool) == 0):
                     paramPool = cp.deepcopy(params)
                     #logger.debug("We ran out of parameters. Reseeding the pool.")
-                #logger.debug("Set of parameters in the pool: " + str(paramPool))
-                #Randomly sample a parameter from the pool
+                # logger.debug("Set of parameters in the pool: " + str(paramPool))
+                # Randomly sample a parameter from the pool
                 selectedParams = [banditSample(paramPool,numIncUpdates,sigDiffSet,fibSeq,banditQueue,logger)]
-                #Remove this parameter so that we don't immediately try it again
+                # Remove this parameter so that we don't immediately try it again
                 paramPool.remove(selectedParams[0])
+            elif(banditQueue == 'deterministic'):
+                # Don't randomize the order of the parameters in any way.
+                selectedParams = params
             else:
-                #Randomize the order in which we visit each parameter. 
+                # Randomize the order in which we visit each parameter. 
                 np.random.shuffle(params)
-                #We're visiting each parameter once before looping
+                # We're visiting each parameter once before looping
                 selectedParams = params
             
             #logger.debug("Proceeding in the order: " + str(selectedParams))

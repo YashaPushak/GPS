@@ -14,10 +14,10 @@ class ArgumentParser:
 
     def __init__(self):
         self.setup_arguments = {
-           ('--scenario-file',): {
+           ('--scenario-file', '--scenario'): {
                 'help': 'The scenario file (and location) that defines what settings are used for GPS.',
                 'type': str},
-           ('--experiment-dir','-e'): {
+           ('--experiment-dir', '--exec-dir', '-e'): {
                 'help': 'The root directory from which experiments will be run. By default, this is the '
                         'current working directory. GPS will change to this directory prior to running, '
                         'this means that if relative paths are specified for any other files or directories '
@@ -99,7 +99,7 @@ class ArgumentParser:
                         'running times reported by your target algorithm wrapper and terminates GPS once they have exceeded '
                         'this limit.',
                 'type': _validate(float, 'The CPU time limit must be a positive, real number', lambda x: float(x) > 0)},
-            ('--seed',): {
+            ('--seed', '-s'): {
                 'help': 'The random seed used by GPS. If -1, a random value will be used. Note that because '
                         'GPS is an asychronous parallel algorithm, it is not deterministic even when the seed '
                         'is set to the same value, as this does not control for random background environmental '
@@ -227,6 +227,21 @@ class ArgumentParser:
                         'currently indicates that it typically decreases the performance of the incumbents '
                         'returned by GPS. Should be \'True\' or \'False\'. The default is \'False\'.',
                 'type': _validate(_to_bool, "The post-process-incumbent parameter must be 'True' or 'False'")}, 
+            ('--parameter-order',): {
+                'help': 'Determines whether or not a bandit queue is used to prioritize parameters that '
+                        'are believed to be more importance. Parameter importance is approximated by '
+                        'counting the number of times that a parameter\'s incumbent is updated. Options are '
+                        '\'BANDIT\', \'RANDOM\' and \'DETERMINISTIC\'. If set to \'RANDOM\' or \'DETERMINISTIC\' '
+                        'then parameters are prioritized equally, but the order in which they are processed '
+                        'will either be shuffled or not, respectively. Deterministic ordering is useful for '
+                        'debugging as it removes one of the many elements of randomness, but is otherwise '
+                        'not recommended. \'RANDOM\' might be preferable to \'BANDIT\' for heavily parameterized '
+                        'scenarios containing many conditional parameters -- especially if a single top-level '
+                        'parent parameter controls which of several algorithms are used, when each of which in '
+                        'turn contains many children parameters.',
+                'type': _validate(str, 'The parameter order must be one of \'BANDIT\', \'RANDOM\' or '
+                                       '\'DETERMINISTIC\'',
+                                  lambda x: x.lower() in ['bandit', 'random', 'deterministic'])},
         }
 
         self.postprocess_parameters = {
@@ -579,11 +594,18 @@ def _get_aliases(names):
     for name in names:
         aliases.append(name)
         if name[:2] == '--':
+            # All initial aliases must have dashes and all lower-case letters
+            # We replace the dashes with underscores to create an alias
             alias = '--{}'.format(name[2:].replace('-', '_'))
             if alias not in aliases:
                 aliases.append(alias)
+            # We replace the dashes with cammel case to create an alias
             alias = '--{}{}'.format(name[2:].split('-')[0],
                                     ''.join([token.capitalize() for token in name[2:].split('-')[1:]]))
+            if alias not in aliases:
+                aliases.append(alias)
+            # and we conver the camel case to all lower case letters for yet another alias
+            alias = alias.lower()
             if alias not in aliases:
                 aliases.append(alias)
     return tuple(aliases)

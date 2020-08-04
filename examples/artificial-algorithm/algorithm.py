@@ -3,6 +3,14 @@ import argparse
 
 import numpy as np
 
+
+import time
+stats_file = 'stats_old.log'
+with open(stats_file, 'a') as f_out:
+    f_out.write(str(sys.argv) + '\n')
+time.sleep(0)
+
+
 runtime = 0
 try:
     parser = argparse.ArgumentParser()
@@ -124,5 +132,6 @@ print('Result for GPS: {result}, {runtime}, {solution_quality}, {misc}'
                 solution_quality=0, # Not needed here, and not yet supported by GPS
                 misc=misc))
 
-
+with open(stats_file, 'a') as f_out:
+    f_out.write(str(runtime) + '\n')
 

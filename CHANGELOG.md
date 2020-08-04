@@ -10,6 +10,14 @@ All notable changes to this project will be documented in this file.
    call target algorithm runs without using command line calls and reading from output files written to the 
    disk. The new interface also supports pre-initialization of datasets/instances, avoiding the need to load
    large amounts of identical instance data prior to performing every single target algorithm run.
+ - All lower-case versions of the camel case parameter aliases are now supported for all parameters.
+ - GPS now supports a few extra aliases for some parameters: 
+   - `--experiment_dir` can be referenced with `--exec_dir`;
+   - `--scenario_file` can be referenced with `--scenario`;
+   - `--seed` can be referenced with `-s`.
+ - The `--parameter_order` GPS parameter is now exposed to the user, which allows to select between using
+   the "bandit queue" to prioritize parameters whose incumbents have been updated more often (the default)
+   or to equally prioritize parameters by visiting them in either a randomized or deterministic order.
 
 ### Changed
  - GPS uses a new permutation test implmentation that is ~10x faster.
