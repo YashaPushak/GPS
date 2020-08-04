@@ -1019,6 +1019,8 @@ def queueRuns(runs,pts,ptns,instSet,alg,inc,p,cutoff,pbest,prange,decayRate,alph
 
     logger.debug("Getting all currently alive tasks")
     aliveSet, aliveAndActiveSet = redisHelper.getAllAlive(gpsID,p,pts,ptns,logger,R)
+    logger.debug("aliveSet={}".format(aliveSet))
+    logger.debug("aliveAndActiveSet={}".format(aliveAndActiveSet))
 
     toQueue = []
 
