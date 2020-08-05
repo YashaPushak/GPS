@@ -461,18 +461,106 @@ for example, the configuration to be evaluated, the instance on which the
 configuration will be evaluated, the maximum budget (`cutoff`) to be used by
 the target algorithm for this particular run, *etc.*
 
-We provide an example implementation below
+We provide a minimal example below
 
-    import pandas as pd
-    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.svm import SVC
+    from sklearn.model_selection import train_test_split
+    from sklearn.datasets import load_digits
     
     from GPS.abstract_runner import AbstractRunner
-
+    
     # Note that the class name must match this exactly!
-    class TargetAlgorithmWrapper(AbstractRunner):
-
+    class TargetAlgorithmRunner(AbstractRunner):
+    
         def __init__(self):
+            X, y = load_digits(return_X_y=True)
+            X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                                random_state=12345)
+            # Save the data for later re-use.
+            self.X_train = X_train
+            self.y_train = y_train
+            self.X_test = X_test
+            self.y_test = y_test
+    
+        def perform_run(self, parameters, instance, seed, **kwargs):
+            """perform_run
+    
+            Fits the model to the training fold specified by the instance
+            and returns the validation error and the training time.
+    
+            Parameters
+            ----------
+            parameters : dict
+                The hyper-parameter configuration to evaluate.
+            instance : str
+                The name of the instance (here: cross-validation "fold") on
+                which to evaluate the configuration.
+            seed : int
+                The random seed to use for the random forest run
+            **kwargs
+                Additional fields not needed for this example.
+    
+            Returns
+            -------
+            result : str
+                Should be one of 'SUCCESS', 'TIMEOUT', or 'CRASHED'.
+            runtime_observed : float
+                The running time used by your target algorithm to perform the run.
+                If optimizing for solution quality, this is still used for
+                CPU-time-based configuration budgets.
+            error_observed : float
+                The solution quality obtained by your target algorithm on this
+                this instance. If optimizing for running time, this field is
+                ignored by GPS (but still required).
+            miscellaneous : str
+                Miscellaneous data returned by your target algorithm run. This
+                must be comma-free, but otherwise will be ignored by GPS.
+            """
+            # Default values to overwrite if the run is successful.
+            result = 'SUCCESS'
+            error_observed = 1
+            miscellaneous = ''
+            # Get the train-test split that corresponds to the specified
+            # instance
+            X_train, X_test, y_train, y_test = self._get_instance_data(instance)
+            start_time = time.clock()
+            # Create and fit the model using the specified configuration
+            model = SVC(random_state=seed, **parameters)
+            model.fit(X_train, y_train)
+            # Record the training time, whether or not the fitting failed, so
+            # that GPS's remaining budget is adjusted accordingly
+            runtime_observed = time.clock() - start_time
+            # GPS always minimizes solution quality, so we return
+            # the error instance of the accuracy
+            error_observed = 1 - model.score(X_test, y_test)
+            return result, runtime_observed, error_observed, miscellaneous
+    
+        def _get_instance_data(self, instance):
+            if instance.lower() != 'test':
+                X_train, X_test, y_train, y_test \
+                    = train_test_split(self.X_train, self.y_train,
+                                       random_state=hash(instance)%54321+12345)
+            else:
+                X_train = self.X_train
+                y_train = self.y_train
+                X_test = self.X_test
+                y_test = self.y_test
+            return X_train, X_test, y_train, y_test
 
+This implementation allows GPS to handle crashed target algorithm run, which
+may cause GPS to over-charge the CPU budget (if specified) for crashed runs.
+That is, if a crashed run requires 1 CPU second, GPS will charge it for the
+full running time cutoff. This example also does not enforce a running time
+cutoff for the target algorithm. If a call to perform_run never terminates,
+then the GPS worker that initiated the call will be unable to report a result
+back to GPS. This could potentially be extremely problematic. By default, GPS
+will requeue any target algorithm runs for which a result has not been reported
+withiun two times their running time cutoff. Therefore, by not enforcing a 
+running time cutoff, GPS's workers may all slowly become blocked while waiting
+for the same, broken target algorithm run to complete.
+
+For a more detailed example on how to handle this, see the target algorithm
+runner as implemented in the example `examples/digits-svm`.
 
 # Instance File Format
 
