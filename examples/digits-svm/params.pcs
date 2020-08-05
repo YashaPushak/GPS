@@ -1,0 +1,21 @@
+C real [0.01, 100] [1]
+kernel categorical {linear, poly, rbf, sigmoid} [rbf]
+degree int [1, 10] [3]
+# This child parameter has three parents that activate it, so we create three
+# copies of the parameter, one for each parent.
+__poly__gamma real [0.00001, 0.1] [0.015625]
+__rbf__gamma real [0.00001, 0.1] [0.015625]
+__sigmoid__gamma real [0.00001, 0.1] [0.015625]
+# This child has two parents that activate it.
+__poly__coef0 real [0, 1] [0]
+__sigmoid__coef0 real [0, 1] [0]
+shrinking categorical {True, False} [True]
+probability categorical {True, False} [False]
+tol real [0.0001, 0.01] [0.001]
+
+degree | kernel == poly
+__poly__gamma | kernel == poly
+__rbf__gamma | kernel == rbf
+__sigmoid__gamma | kernel == sigmoid
+__poly__coef0 | kernel == poly
+__sigmoid__coef0 | kernel == sigmoid

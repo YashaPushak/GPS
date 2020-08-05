@@ -1,0 +1,9 @@
+pcs-file = params.pcs
+algo = algorithm_runner.py
+algo-type = PYTHON
+algo-cutoff-time = 10
+instances = instances.txt
+run_obj = QUALITY
+wallclock_limit = 60
+verbose = 1
+minimum_workers = 7

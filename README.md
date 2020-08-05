@@ -376,14 +376,14 @@ ParamILS, which means that you can directly use any scenarios set up for use
 with the generic wrapper for algorithm configuration available from 
 https://github.com/automl/GenericWrapper4AC. However, if your target algorithm
 is implemented in python, then using the python interface will potentially 
-speed up configuration process and improve the quality of the configurations 
-found. This is because the python interface allows you to load and initialize
-data/instances a single time (per worker), and then re-use this data for each
-target algorithm call, whereas due to the nature of command line interfaces
-you must instead re-load the instances from the disk for every target algorithm
-call, which may be costly. The python interface is further advantageous as it
-removes the need for GPS to constantly write to and read from temporary files
-on the disk.
+speed up the configuration process and improve the quality of the 
+configurations found. This is because the python interface allows you to load 
+and initialize data/instances a single time (per worker), and then re-use this
+data for each target algorithm call, whereas due to the nature of command line
+interfaces you must instead re-load the instances from the disk for every 
+target algorithm call, which may be costly. The python interface is further 
+advantageous as it removes the need for GPS to constantly write to and read 
+from temporary files on the disk.
 
 ## Command Line Target Algorithm Wrapper Format
 

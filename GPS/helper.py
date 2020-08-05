@@ -11,6 +11,7 @@ import os
 import numpy as np
 import glob
 import datetime
+import signal
 
 def generateID(size=6, chars=string.ascii_uppercase + string.digits):
     #generate a random ID for identifying SMAC runs
@@ -405,3 +406,19 @@ def isClose(a, b, rel_tol=1e-9, abs_tol=1e-6):
         return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
     else:
         return a == b
+
+
+class TimeoutException(Exception): pass
+
+@contextmanager
+def time_limit(seconds):
+    seconds = int(np.ceil(seconds))
+    def signal_handler(signum, frame):
+        raise TimeoutException("Timed out!")
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+
