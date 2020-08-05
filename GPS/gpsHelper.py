@@ -588,8 +588,8 @@ def permTestSep(parameter,ptns,runs,pbest,prange,decayRate,alpha,minInstances,cu
     # statistical significance with a permutation test.
 
     logger.debug("~~~Starting permutation test for " + str(parameter) + "~~~")
-    logger.debug("Current runs={}".format(runs))
-    logger.debug("cutoff={}".format(cutoff))
+    #logger.debug("Current runs={}".format(runs))
+    #logger.debug("cutoff={}".format(cutoff))
 
     eliminated = []
     for j in range(0,len(ptns)):
