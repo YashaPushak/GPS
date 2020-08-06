@@ -459,7 +459,12 @@ only loading and saving instance data when it is first needed by `perform_run`.
 The `perform_run` function should accept several key-word arguments defining,
 for example, the configuration to be evaluated, the instance on which the
 configuration will be evaluated, the maximum budget (`cutoff`) to be used by
-the target algorithm for this particular run, *etc.*
+the target algorithm for this particular run, *etc.* It must also return
+exactly four arguments: the run status (one of `SUCCESS`, `CRASHED` or 
+`TIMEOUT`), the running (budget) time spent on the target algorithm run, 
+the solution quality and a string containing miscellaneous data. All four
+fields are always required for consistency; however, GPS does not make
+use of the solution quality when optimizing for running time.
 
 We provide a minimal example below
 
@@ -491,24 +496,40 @@ We provide a minimal example below
             Parameters
             ----------
             parameters : dict
-                The hyper-parameter configuration to evaluate.
+                A dictionary mapping parameter names to values. This defines the
+                parameter configuration to be evaluated.
             instance : str
-                The name of the instance (here: cross-validation "fold") on
-                which to evaluate the configuration.
+                The name of the instance on which the configuration is to be
+                evaluated. This will correspond directly to one of the lines
+                defined in your instance file.
+            instance_specifics : str
+                GPS does not currently support instance-specific information. This
+                value will always be "0".
             seed : int
-                The random seed to use for the random forest run
-            **kwargs
-                Additional fields not needed for this example.
+                The random seed to be used by your target algorithm.
+            cutoff : float
+                A running time cutoff to be used by your target algorithm. Note
+                that you must enforce this cutoff in your target algorithm or
+                wrapper, GPS does not do it for you. The cutoff time is in seconds.
+            run_length : int
+                GPS does not currently support run-length-based cutoffs. This value
+                will always be 0.
+            run_id : str
+                A randomly generated string that you may optionally use to uniquely
+                identify this run of your target algorithm.
+            temp_dir : str
+                The location of a directory where temporary files used by your
+                target algorithm should be created (and deleted).
     
             Returns
             -------
             result : str
                 Should be one of 'SUCCESS', 'TIMEOUT', or 'CRASHED'.
-            runtime_observed : float
+            runtime : float
                 The running time used by your target algorithm to perform the run.
                 If optimizing for solution quality, this is still used for
                 CPU-time-based configuration budgets.
-            error_observed : float
+            solution_quality : float
                 The solution quality obtained by your target algorithm on this
                 this instance. If optimizing for running time, this field is
                 ignored by GPS (but still required).
@@ -577,6 +598,11 @@ and
 
 It should take approximately 1 minute to run. GPS should be able to
 reduce the test error from approximately 49% to 1.5% for this scenario.
+
+As you can see from the docstring for `perform_run`, GPS also provides 
+several other keyword arguments that you may use. However, since most of them
+were not needed in this example, we simply captured and ignored them with
+`**kwargs`. 
 
 # Instance File Format
 
