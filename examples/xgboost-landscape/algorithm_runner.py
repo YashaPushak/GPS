@@ -11,29 +11,18 @@ from GPS import helper
 
 class TargetAlgorithmRunner(AbstractRunner):
 
-    def __init__(self, datafile='xgboost_grid_data.csv'):
+    def __init__(self):
         hyperparameters = ['eta', 'gamma', 'max_depth', 
                            'min_child_weight', 'max_delta_step',
                            'subsample', 'colsample_bytree', 
                            'colsample_bylevel', 'lambda', 'alpha',
                            'num_round']
-
-        data = pd.read_csv(datafile, index_col=0)
-        min_ = np.array(data[hyperparameters].min())
-        max_ = np.array(data[hyperparameters].max())
-        data = data.sort_values(hyperparameters)
-        X = np.array(data.drop_duplicates(hyperparameters)[hyperparameters])
-        error_ = np.array(data['error']).reshape((len(X), -1))
-        runtime = np.array(data['running time']).reshape((len(X), -1))
-        error_mean = np.mean(error_, axis=1)
-        error_std = stats.sem(error_, axis=1)
-        runtime_mean = np.mean(runtime, axis=1)
-        runtime_std = stats.sem(runtime, axis=1)
-        y = np.concatenate([y[:,np.newaxis] for y in [error_mean, 
-                                                      error_std, 
-                                                      runtime_mean, 
-                                                      runtime_std]],
-                           axis=1)
+        X = pd.read_csv('X.csv', index_col=False)
+        y = pd.read_csv('y.csv', index_col=False)
+        min_ = np.array(X[hyperparameters].min())
+        max_ = np.array(X[hyperparameters].max())
+        X = np.array(X)
+        y = np.array(y)
         X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                             test_size=0.3)
         model = RandomForestRegressor()
@@ -45,12 +34,6 @@ class TargetAlgorithmRunner(AbstractRunner):
                                              'STD Running Time'])
         for (score, name) in scores:
             print('Mean absolute error for {0}: {1:.2f}%'.format(name, score*100))
-        # Save the model and the bounds of the hyper-parameters used to train it
-        # for future use
-        helper.saveObj('.', model, 'trained_model')
-        helper.saveObj('.', min_, 'min_hp_values')
-        helper.saveObj('.', max_, 'max_hp_values')
-
         self.model = model
         self.hyperparameters = hyperparameters
         self.min_ = min_
