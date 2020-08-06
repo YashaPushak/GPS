@@ -37,7 +37,6 @@ Solving from Nature (PPSN 2018)*. pp 271-283 (2018).
 
 # Table of Contents
 
-
    * [Golden Parameter Search (GPS)](#golden-parameter-search-gps)
    * [Table of Contents](#table-of-contents)
    * [Installing GPS](#installing-gps)
@@ -50,8 +49,10 @@ Solving from Nature (PPSN 2018)*. pp 271-283 (2018).
       * [Temporary File Directory - <strong>Important</strong>](#temporary-file-directory---important)
       * [Solution Quality Optimization](#solution-quality-optimization)
    * [Target Algorithm Wrapper](#target-algorithm-wrapper)
-      * [Target Algorithm Wrapper Input](#target-algorithm-wrapper-input)
-      * [Target Algorithm Wrapper Output](#target-algorithm-wrapper-output)
+      * [Command Line Target Algorithm Wrapper Format](#command-line-target-algorithm-wrapper-format)
+         * [Target Algorithm Wrapper Input](#target-algorithm-wrapper-input)
+         * [Target Algorithm Wrapper Output](#target-algorithm-wrapper-output)
+      * [Python Target Algorithm Wrapper Interface](#python-target-algorithm-wrapper-interface)
    * [Instance File Format](#instance-file-format)
    * [Parameter Configuration Space File Format](#parameter-configuration-space-file-format)
       * [Conditional Parameters](#conditional-parameters)
@@ -446,7 +447,7 @@ target algorithm run that you choose. GPS parses it as a string, but otherwise
 ignores this information. For backwards compatibility with other configurators,
 this field should not contain any commas.
 
-### Python Target Algorithm Wrapper Interface
+## Python Target Algorithm Wrapper Interface
 
 To use the python interface you will need to create a class called
 `TargetAlgorithmRunner` that inherits from GPS's `AbstractRunner`
@@ -786,41 +787,44 @@ in the scenario file.
 
 **GPS Argument Table of Contents:**
 
-   * [Setup Arguments](#setup-arguments)
-      * [experiment_dir](#experiment_dir)
-      * [output_dir](#output_dir)
-      * [scenario_file](#scenario_file)
-      * [temp_dir](#temp_dir)
-      * [verbose](#verbose)
-   * [Redis Arguments](#redis-arguments)
-      * [redis_dbid](#redis_dbid)
-      * [redis_host](#redis_host)
-      * [redis_port](#redis_port)
-   * [Scenario Arguments](#scenario-arguments)
-      * [algo](#algo)
-      * [algo_cutoff_time](#algo_cutoff_time)
-      * [cputime_limit](#cputime_limit)
-      * [instance_file](#instance_file)
-      * [pcs_file](#pcs_file)
-      * [run_obj](#run_obj)
-      * [runcount_limit](#runcount_limit)
-      * [seed](#seed)
-      * [wallclock_limit](#wallclock_limit)
-   * [GPS Parameters](#gps-parameters)
-      * [alpha](#alpha)
-      * [bound_multiplier](#bound_multiplier)
-      * [decay_rate](#decay_rate)
-      * [instance_increment](#instance_increment)
-      * [minimum_runs](#minimum_runs)
-      * [minimum_workers](#minimum_workers)
-      * [post_process_incumbent](#post_process_incumbent)
-      * [share_instance_order](#share_instance_order)
-      * [sleep_time](#sleep_time)
-   * [Post-Process Parameters](#post-process-parameters)
-      * [post_process_alpha](#post_process_alpha)
-      * [post_process_min_runs](#post_process_min_runs)
-      * [post_process_multiple_test_correction](#post_process_multiple_test_correction)
-      * [post_process_n_permutations](#post_process_n_permutations)
+  * [Setup Arguments](#setup-arguments)
+     * [experiment_dir](#experiment_dir)
+     * [output_dir](#output_dir)
+     * [scenario_file](#scenario_file)
+     * [temp_dir](#temp_dir)
+     * [verbose](#verbose)
+  * [Redis Arguments](#redis-arguments)
+     * [redis_dbid](#redis_dbid)
+     * [redis_host](#redis_host)
+     * [redis_port](#redis_port)
+  * [Scenario Arguments](#scenario-arguments)
+     * [algo](#algo)
+     * [algo_cutoff_time](#algo_cutoff_time)
+     * [algo_type](#algo_type)
+     * [cputime_limit](#cputime_limit)
+     * [instance_file](#instance_file)
+     * [pcs_file](#pcs_file)
+     * [run_obj](#run_obj)
+     * [runcount_limit](#runcount_limit)
+     * [seed](#seed)
+     * [wallclock_limit](#wallclock_limit)
+  * [GPS Parameters](#gps-parameters)
+     * [alpha](#alpha)
+     * [bound_multiplier](#bound_multiplier)
+     * [decay_rate](#decay_rate)
+     * [instance_increment](#instance_increment)
+     * [minimum_runs](#minimum_runs)
+     * [minimum_workers](#minimum_workers)
+     * [parameter_order](#parameter_order)
+     * [post_process_incumbent](#post_process_incumbent)
+     * [share_instance_order](#share_instance_order)
+     * [sleep_time](#sleep_time)
+  * [Post-Process Parameters](#post-process-parameters)
+     * [post_process_alpha](#post_process_alpha)
+     * [post_process_min_runs](#post_process_min_runs)
+     * [post_process_multiple_test_correction](#post_process_multiple_test_correction)
+     * [post_process_n_permutations](#post_process_n_permutations)
+
 
 ## Setup Arguments
 
