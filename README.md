@@ -560,7 +560,23 @@ running time cutoff, GPS's workers may all slowly become blocked while waiting
 for the same, broken target algorithm run to complete.
 
 For a more detailed example on how to handle this, see the target algorithm
-runner as implemented in the example `examples/digits-svm`.
+runner as implemented in the example `examples/digits-svm`. To run this 
+scenario (on an 8+ core machine), use:
+
+    python run_gps_master.py --experiment_dir examples/digits-svm --scenario_file scenario.txt --dbid 0
+
+and 
+
+    python run_gps_worker.py --dbid 0 &
+    python run_gps_worker.py --dbid 0 &
+    python run_gps_worker.py --dbid 0 &
+    python run_gps_worker.py --dbid 0 &
+    python run_gps_worker.py --dbid 0 &
+    python run_gps_worker.py --dbid 0 &
+    python run_gps_worker.py --dbid 0 &
+
+it should take approximately 1 minute to run. GPS should be able to
+reduce the test error from approximately 49% to 1.5% for this scenario.
 
 # Instance File Format
 
