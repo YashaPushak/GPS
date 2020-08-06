@@ -280,10 +280,10 @@ argument specifications:
     # Whichever budget limit is reached first will terminate GPS
     runcount_limit = 400
     # Note that GPS only counts the times reported by your target algorithm in this limit
-    # So even though we are giving it 4 hours (14400 seconds), it should actually terminate
+    # So even though we are giving it 6 hours (21600 seconds), it should actually terminate
     # in around 1-3 minutess, since our artificial algorithm actually spends far less time
     # than it returns
-    cputime_limit = 14400
+    cputime_limit = 21600
     verbose = 1
 
 Any line that begins with `#` is treated as a comment and ignored. 
@@ -522,7 +522,7 @@ We provide a minimal example below
             miscellaneous = ''
             # Get the train-test split that corresponds to the specified
             # instance
-            X_train, X_test, y_train, y_test = self._get_instance_data(instance)
+            X_train, X_val, y_train, y_val = self._get_instance_data(instance)
             start_time = time.clock()
             # Create and fit the model using the specified configuration
             model = SVC(random_state=seed, **parameters)
@@ -531,8 +531,8 @@ We provide a minimal example below
             # that GPS's remaining budget is adjusted accordingly
             runtime_observed = time.clock() - start_time
             # GPS always minimizes solution quality, so we return
-            # the error instance of the accuracy
-            error_observed = 1 - model.score(X_test, y_test)
+            # the error instead of the accuracy
+            error_observed = 1 - model.score(X_val, y_val)
             return result, runtime_observed, error_observed, miscellaneous
     
         def _get_instance_data(self, instance):
@@ -547,7 +547,7 @@ We provide a minimal example below
                 y_test = self.y_test
             return X_train, X_test, y_train, y_test
 
-This implementation allows GPS to handle crashed target algorithm run, which
+This implementation leaves GPS to handle crashed target algorithm runs, which
 may cause GPS to over-charge the CPU budget (if specified) for crashed runs.
 That is, if a crashed run requires 1 CPU second, GPS will charge it for the
 full running time cutoff. This example also does not enforce a running time
@@ -575,7 +575,7 @@ and
     python run_gps_worker.py --dbid 0 &
     python run_gps_worker.py --dbid 0 &
 
-it should take approximately 1 minute to run. GPS should be able to
+It should take approximately 1 minute to run. GPS should be able to
 reduce the test error from approximately 49% to 1.5% for this scenario.
 
 # Instance File Format

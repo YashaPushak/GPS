@@ -65,7 +65,7 @@ class TargetAlgorithmRunner(AbstractRunner):
         miscellaneous = ''
         # Get the train-test split that corresponds to the specified 
         # instance
-        X_train, X_test, y_train, y_test = self._get_instance_data(instance)
+        X_train, X_val, y_train, y_val = self._get_instance_data(instance)
         # Reformat the hyperparameter dict before passing to SVC
         parameters = _format_hyperparameters(parameters)
         try:
@@ -90,8 +90,8 @@ class TargetAlgorithmRunner(AbstractRunner):
         # Evaluate the model, if we were able to fit one
         if result == 'SUCCESS':
             # GPS always minimizes solution quality, so we return
-            # the error instance of the accuracy
-            error_observed = 1 - model.score(X_test, y_test)
+            # the error instead of the accuracy
+            error_observed = 1 - model.score(X_val, y_val)
         return result, runtime_observed, error_observed, miscellaneous
 
     def _get_instance_data(self, instance):
