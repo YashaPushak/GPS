@@ -121,7 +121,7 @@ def gps(arguments, gpsID):
     insts = parseInstances(arguments['instance_file'])
     wrapper = arguments['algo']
     runObj = arguments['run_obj'].lower()
-    cutoff = arguments['algo_cutoff_time'],
+    cutoff = arguments['algo_cutoff_time']
     runBudget = arguments['runcount_limit']
     wallBudget = arguments['wallclock_limit']
     cpuBudget = arguments['cputime_limit']

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.1] - 2020-08-05
+
+### Fixed
+ - Previous version of GPS contained a bug causing any configuration that was censored a single time using
+   the user-specified running time cutoff to be treated as if they had been censored due to an adaptive cap.
+   For large running time cutoffs, this rarely affects the performance of GPS, in fact, in may provide a
+   small speedup as GPS will reject bad configurations more quickly. However, if the running time cutoff is
+   small enough to occasionally censor the runs of good configurations, then the output from GPS will likely
+   be quite poor, since GPS will effectively be random rejecting configurations. This bug did not exist in the
+   original version of GPS studied in the 2020 GECCO paper: "Golden Parameter Search: Exploiting Structure to
+   Quickly Configure Parameters in Parallel".
+
 ## [1.1.0] - 2020-07-17
 
 ### Added
