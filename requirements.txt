@@ -1,4 +1,4 @@
 PCS==0.1
-redis==2.10.6
+redis==4.4.4
 numpy==1.11.3
 pandas==0.19.2
